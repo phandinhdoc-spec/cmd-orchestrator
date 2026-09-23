@@ -6,6 +6,7 @@ from .engine import begin_prompt_review, select_prompt, patch_plan_item, approve
 from .planner import hermes_plan_contract
 from .storage import STORE, EDITABLE
 from .rescue import rescue
+from .cleanup import preview as clean_preview, format_preview as clean_format, clean_selected, clean_project, clean_all
 
 
 def fmt_status(include_plan=True):
@@ -228,6 +229,37 @@ def c_learning(a):
     return c_learn(a)
 
 
+def c_clean(a):
+    raw=(a or "").strip()
+    if not raw:
+        return clean_format(clean_preview("select",False)) + """
+    
+Choose one:
+  /cmd-clean select P1 P2 ...     delete only selected CMD files
+  /cmd-clean project              delete CMD files of the current project
+  /cmd-clean project --deep       project files + matching CMD run snapshots
+  /cmd-clean all                  delete all historical CMD artifact files
+  /cmd-clean all --deep           reset all CMD runtime state too
+  /cmd-clean all --deep --learning  ALSO delete learned memory (destructive)
+"""
+    parts=raw.split(); mode=parts[0].lower()
+    deep="--deep" in parts; learning="--learning" in parts
+    if mode in ("preview","list"):
+        scope=parts[1].lower() if len(parts)>1 and not parts[1].startswith("--") else "select"
+        return clean_format(clean_preview(scope,deep))
+    if mode=="select":
+        ids=[x for x in parts[1:] if not x.startswith("--")]
+        if not ids: return clean_format(clean_preview("select",deep))+"\n\nSelect IDs, e.g. /cmd-clean select P1"
+        return json.dumps(clean_selected(ids),ensure_ascii=False,indent=2)
+    if mode=="project":
+        return json.dumps(clean_project(deep),ensure_ascii=False,indent=2)
+    if mode=="all":
+        if learning and not deep:
+            return "--learning is only accepted with: /cmd-clean all --deep --learning"
+        return json.dumps(clean_all(deep,learning),ensure_ascii=False,indent=2)
+    return "Usage: /cmd-clean [select <IDs...>|project|all] [--deep] [--learning]"
+
+
 def c_rescue(a): return json.dumps(rescue(reason=(a or "manual /cmd-rescue")),ensure_ascii=False,indent=2)
 
 
@@ -258,6 +290,10 @@ COMMANDS
 /cmd-checkpoint [note]
 /cmd-resume [run_id]
 /cmd-history
+/cmd-clean                                preview CMD-generated files
+/cmd-clean select <IDs...>                delete selected files
+/cmd-clean project [--deep]               clean current project CMD artifacts
+/cmd-clean all [--deep] [--learning]      clean all CMD artifacts/state
 /cmd-rescue [reason]
 /cmd-abort [reason]
 /cmd-auto [off|review|on]
