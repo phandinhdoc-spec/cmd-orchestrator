@@ -5,7 +5,7 @@ from .storage import STORE
 from .tools import SCHEMAS, HANDLERS
 from .commands import (
     c_status,c_mode,c_auto,make_plan,c_prompt,c_review,c_edit,make_run,c_route,c_model,c_models,
-    c_learn,c_learning,c_checkpoint,c_resume,c_history,c_rescue,c_abort,c_help
+    c_learn,c_learning,c_clean,c_checkpoint,c_resume,c_history,c_rescue,c_abort,c_help
 )
 from .rescue import looks_limited, rescue
 
@@ -45,6 +45,7 @@ def register(ctx):
       ("cmd-route",c_route,"Explain v1.2 routing ownership.","[task]"),
       ("cmd-mode",c_mode,"Compatibility cost/quality hint; Hermes still owns routing.","[cheap|balanced|quality|fast]"),
       ("cmd-auto",c_auto,"Set CMD intervention mode.","[off|review|on]"),
+      ("cmd-clean",c_clean,"Preview/selectively clean CMD-generated artifacts or deep-clean CMD state.","[select IDs...|project|all] [--deep] [--learning]"),
       ("cmd-checkpoint",c_checkpoint,"Force a durable checkpoint.","[note]"),
       ("cmd-resume",c_resume,"Resume latest interrupted run.","[run_id]"),
       ("cmd-history",c_history,"Show recent runs.",""),
