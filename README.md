@@ -1,83 +1,242 @@
-# cmd-orchestrator v1.1.0
+# cmd-orchestrator v1.2.0
 
-Standalone multi-model orchestration plugin for Hermes.
+`cmd-orchestrator` is a **control plane for Hermes**, not a second orchestrator.
 
-## New in v1.1
+Hermes remains responsible for understanding the job, planning, dependencies, parallelism, worker/model selection, and execution. CMD makes those decisions visible, lets the human intervene, persists execution state, and turns reflection into editable learning.
 
-The operator can see the complete task/model routing plan before execution and override the model for any task that has not started. /cmd-status is detailed by default. /cmd-model and /cmd-models show the provider/model catalog visible to the current Hermes installation instead of only cmd-orchestrator logical tiers.
+## Core principle
 
-## Recommended review workflow
+```text
+Hermes = orchestrator
+CMD    = transparency + control + durable state + teachable learning
+```
 
-    /cmd-auto review
-    /cmd-mode balanced
-    /cmd-plan <work>
+The preferred representation is DSL-like and code-shaped so plans are easy to inspect and edit.
 
-At this point cmd shows TASK / STATUS / PROVIDER / MODEL / routing reason.
+## Default flow
 
-Optional overrides:
+```text
+user_prompt
+    |
+    v
+Hermes decides DIRECT vs ORCHESTRATED
+    |
+    +-- DIRECT ------------------------------> execute directly
+    |                                          shell/API first; Computer Use for GUI
+    |
+    `-- ORCHESTRATED
+          |
+          v
+       Grill Me
+          |
+          v
+prompt_review {
+  original = """FULL original prompt"""
+  grilled  = """FULL Grill Me prompt"""
+}
+          |
+          +-- original
+          +-- grilled
+          `-- edited
+          |
+          v
+       Hermes plan
+          |
+          v
+plan {
+  task T1 {
+    work_unit W1.1 {
+      route = "provider/model"
+      step S1.1.1 {}
+      step S1.1.2 {}
+    }
+  }
+}
+          |
+          v
+human review / edit / model override
+          |
+          v
+         RUN
+          |
+          v
+Hermes reflection -> CMD learning review -> human teaches/corrects Hermes
+```
 
-    /cmd-model T2 commandcode <exact-model-id>
-    /cmd-model T3 auto
-    /cmd-review
-    /cmd-run
-    /cmd-status
+## Plan resolution: Task -> Work Unit -> Step
 
-A route can be changed while a run is active only while that task is READY or PENDING. Tasks already RUNNING or terminal are protected. Hermes is instructed to re-read the saved route immediately before each task, so an override made before that task begins is honored.
+v1.2 deliberately separates plan detail from execution granularity.
 
-## Slash commands
+- **Task**: a meaningful phase such as design, implementation, test, documentation.
+- **Work Unit**: the smallest independently routable/executable unit. Model selection happens here by default.
+- **Step**: a detailed checklist inside a work unit. A step does **not** automatically become another agent call.
 
-    /cmd-help
-    /cmd-status [--json]
-    /cmd-mode [cheap|balanced|quality|fast]
-    /cmd-auto [off|review|on]
-    /cmd-plan <work>
-    /cmd-review
-    /cmd-run
-    /cmd-route <task>
-    /cmd-model
-    /cmd-model <TASK_ID> <provider> <model>
-    /cmd-model <TASK_ID> auto
-    /cmd-models
-    /cmd-learning
-    /cmd-checkpoint [note]
-    /cmd-resume [run_id]
-    /cmd-history
-    /cmd-rescue [reason]
-    /cmd-abort [reason]
+This allows Hermes to expose mixed difficulty inside one task. Example: easy helper functions can use a cheap model while a difficult algorithm/state machine can use a stronger model.
 
-## Model catalog
+The rule is:
 
-/cmd-model with no arguments and /cmd-models are aliases for the Hermes-visible catalog. Discovery uses Hermes configuration, its authenticated-provider helper when available, models.dev catalog, and provider fallback declarations. Credentials are never returned.
+```text
+Plan deeply. Execute efficiently.
+```
 
-## Automation modes
+CMD validates whether a Hermes plan is too coarse, but CMD does not invent the missing plan. It asks Hermes to expand it.
 
-- off: orchestration only when explicitly requested.
-- review: plan and route first; user can edit routes; wait for /cmd-run.
-- on: automatically orchestrate substantial work.
+## Prompt review
 
-Recommended initial mode: review.
+For substantial work, Grill Me / `grill-tab` should run first when available. CMD must show the **full original prompt and full grilled prompt**. Grill output never silently replaces user intent.
+
+```text
+/cmd-prompt
+/cmd-prompt original
+/cmd-prompt grilled
+/cmd-prompt edit <full edited prompt>
+```
+
+CMD stores `original_prompt`, `grilled_prompt`, and `selected_prompt` separately.
+
+## Task review and human intervention
+
+Hermes creates the plan and chooses default provider/model routes. CMD renders that plan in a DSL-like form.
+
+```text
+/cmd-review
+/cmd-edit W2.1 title="Easy helpers" risk=low verification="unit tests"
+/cmd-model W2.1 commandcode <exact-model-id>
+/cmd-model W2.1 auto
+/cmd-run
+```
+
+`/cmd-model ... auto` restores **Hermes' original route**, not a route invented by CMD.
+
+Only not-yet-started work is editable:
+
+```text
+PENDING / READY / WAITING -> editable
+RUNNING                   -> locked
+DONE / FAILED / SKIPPED   -> locked
+```
+
+## Simple commands
+
+CMD does not force every request through Grill and plan review. Hermes first decides whether the request is simple enough for direct execution.
+
+For direct work, prefer the most reliable direct mechanism:
+
+1. shell/tool/API when available;
+2. Computer Use when the task genuinely requires GUI interaction.
+
+Examples: `git status`, renaming a file, running tests, or reading a known file should normally be direct. GUI navigation may use Computer Use.
+
+## Learning: Hermes learns first, CMD fills gaps
+
+After a run, Hermes should reflect and submit evidence-based learning. CMD stores that reflection as human-reviewable entries.
+
+CMD distinguishes:
+
+```text
+OBSERVATION -> LESSON -> RULE
+```
+
+Typical states:
+
+```text
+CANDIDATE -> APPROVED -> ACTIVE
+             |            |
+             +-> EDITED   +-> DISABLED
+REJECTED / ARCHIVED
+```
+
+If Hermes finishes a run without recording reflection, CMD creates only a low-confidence operational **observation**. It does not silently promote one event into a rule.
+
+### Teach Hermes
+
+```text
+/cmd-learn
+/cmd-learn add <rule>
+/cmd-learn edit L0003 <corrected lesson>
+/cmd-learn approve L0003
+/cmd-learn activate L0003
+/cmd-learn disable L0003
+/cmd-learn reject L0003
+/cmd-learn delete L0003
+```
+
+Learning authority is intentionally ordered:
+
+```text
+user-taught ACTIVE rule
+    > user-approved Hermes lesson
+    > unapproved Hermes candidate
+    > CMD fallback observation
+```
+
+Before future substantial work, Hermes can retrieve ACTIVE/APPROVED lessons as context. Those lessons inform Hermes; they do not replace Hermes planning authority.
+
+## Commands
+
+```text
+/cmd-status [--json]
+/cmd-prompt [original|grilled|edit <prompt>]
+/cmd-plan <work>                     # manual planning request; normally automatic
+/cmd-review
+/cmd-edit <ID> field=value ...
+/cmd-run
+/cmd-model
+/cmd-model <W#.#> <provider> <model>
+/cmd-model <W#.#> auto
+/cmd-models
+/cmd-learn [action ...]
+/cmd-learning                       # alias
+/cmd-checkpoint [note]
+/cmd-resume [run_id]
+/cmd-history
+/cmd-rescue [reason]
+/cmd-abort [reason]
+/cmd-auto [off|review|on]
+/cmd-mode [cheap|balanced|quality|fast]  # compatibility hint only
+/cmd-help
+```
 
 ## Durable state
 
-Source of truth: ~/.hermes/state/cmd-orchestrator/orchestrator.sqlite3
+```text
+~/.hermes/state/cmd-orchestrator/orchestrator.sqlite3
+~/.hermes/state/cmd-orchestrator/learning.sqlite3
+~/.hermes/state/cmd-orchestrator/runs/
+```
 
-Learning data: ~/.hermes/state/cmd-orchestrator/learning.sqlite3
+When working inside a project, CMD also keeps a human-readable checkpoint at:
 
-Human-readable project checkpoint: .ai/task_on_progress.md
+```text
+.ai/task_on_progress.md
+```
+
+## Model ownership
+
+Hermes is the default routing authority in v1.2. CMD stores both the original Hermes route and any operator override at work-unit level.
+
+`/cmd-model` and `/cmd-models` show the model catalog visible to the installed Hermes environment when the relevant Hermes APIs are available.
 
 ## Apple Intelligence rescue
 
-fm is only a rescue layer. SQLite checkpointing happens first and does not depend on any model.
+`fm` remains an emergency local rescue layer. Durable SQLite checkpointing happens first and does not depend on a model.
 
-Manual rescue: /cmd-rescue
+```text
+/cmd-rescue
+```
 
-## Clean install
+## Install / test
 
-    python3 selftest.py
-    python3 install.py
+```bash
+python3 selftest.py
+python3 install.py
+hermes plugins doctor ~/.hermes/plugins/cmd-orchestrator --ci
+```
 
-Fresh state, with backup:
+For a clean state with backup:
 
-    python3 install.py --clean-state
+```bash
+python3 install.py --clean-state
+```
 
-Backups are stored under ~/.hermes/plugin-backups/, never under ~/.hermes/plugins/.
+Backups remain under `~/.hermes/plugin-backups/`.
