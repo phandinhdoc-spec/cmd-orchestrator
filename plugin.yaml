@@ -1,11 +1,19 @@
 name: cmd-orchestrator
-version: 1.1.0
-description: "Multi-model orchestration for Hermes with visible task/model plans, operator route overrides, Hermes model discovery, durable checkpoints, resume, verification tracking, learning, and Apple Intelligence fm rescue."
+version: 1.2.0
+description: "Hermes control plane: full Grill prompt review, detailed task/work_unit/step visibility, human edits and model overrides, durable execution state, teachable learning, and local rescue. Hermes remains the orchestrator."
 provides_tools:
-  - cmd_orchestrate
-  - cmd_plan
-  - cmd_route
+  - cmd_prompt_capture
+  - cmd_prompt_select
+  - cmd_capture_plan
+  - cmd_plan_patch
+  - cmd_approve_run
+  - cmd_unit_update
+  - cmd_complete_run
+  - cmd_learning_capture
+  - cmd_learning_context
   - cmd_models_refresh
+  - cmd_orchestrate
+  - cmd_route
   - cmd_learning_stats
 provides_hooks:
   - pre_llm_call
