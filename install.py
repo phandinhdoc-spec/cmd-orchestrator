@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import argparse, shutil, time, os
+import argparse, shutil, time
 from pathlib import Path
 
-VERSION="1.0.1"
+VERSION="1.2.0"
 HOME=Path.home()
 DST=HOME/".hermes"/"plugins"/"cmd-orchestrator"
 BACK=HOME/".hermes"/"plugin-backups"
@@ -27,16 +27,17 @@ def main():
         shutil.move(str(STATE),str(b))
         print("[backup state ]",b)
 
-    # Critical: backup is OUTSIDE ~/.hermes/plugins so Hermes will not discover it as a duplicate plugin.
+    # Backup stays outside ~/.hermes/plugins so Hermes will not discover duplicate manifests.
+    # copytree intentionally copies every runtime *.py module introduced by v1.2.
     DST.parent.mkdir(parents=True,exist_ok=True)
-    shutil.copytree(src,DST,ignore=shutil.ignore_patterns("__pycache__","*.pyc","install.py","selftest.py","README.md"))
+    shutil.copytree(src,DST,ignore=shutil.ignore_patterns("__pycache__","*.pyc","install.py","selftest.py","README.md",".git"))
     print("[installed]",DST)
-    print("version 1.0.1")
+    print("version",VERSION)
     print()
     print("Reload Hermes gateway:")
     print("  hermes gateway stop")
     print("  hermes gateway start")
-    print("  hermes plugins list | grep cmd-orchestrator")
+    print("  hermes plugins doctor ~/.hermes/plugins/cmd-orchestrator --ci")
     print()
     print("Then inside Hermes:")
     print("  /cmd-help")
