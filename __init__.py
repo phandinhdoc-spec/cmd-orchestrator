@@ -3,41 +3,78 @@ import logging
 from .config import load_settings
 from .storage import STORE
 from .tools import SCHEMAS, HANDLERS
-from .commands import c_status,c_mode,c_auto,c_plan,c_review,make_run,c_route,c_model,c_models,c_learning,c_checkpoint,c_resume,c_history,c_rescue,c_abort,c_help
+from .commands import (
+    c_status,c_mode,c_auto,make_plan,c_prompt,c_review,c_edit,make_run,c_route,c_model,c_models,
+    c_learn,c_learning,c_checkpoint,c_resume,c_history,c_rescue,c_abort,c_help
+)
 from .rescue import looks_limited, rescue
+
 log=logging.getLogger(__name__)
 
+ORCHESTRATED_GUIDANCE = """cmd-orchestrator v1.2 is a CONTROL PLANE, not a replacement orchestrator.
+Hermes remains responsible for planning, dependencies, parallelism, worker/model choice, and execution.
+
+For each new user request, Hermes first decides DIRECT vs ORCHESTRATED using its own judgment:
+- DIRECT: simple, low-risk, obvious tool action. Execute directly with the most reliable direct tool (shell/API; Computer Use only when GUI is actually needed). Skip Grill and plan review.
+- ORCHESTRATED: substantial/multi-part/mixed-difficulty work. Follow this protocol:
+  1) Invoke Grill Me / grill-tab if available. Never silently replace the user prompt.
+  2) Call cmd_prompt_capture with the FULL original prompt and FULL grilled prompt. Show both in full and wait for the human to choose original/grilled/edit.
+  3) After selection, Hermes creates the plan. Use task -> work_unit -> step. Make it detailed enough to expose mixed difficulty. A work_unit is independently routable; a step normally is not an agent call.
+  4) Hermes chooses provider/model per work_unit. Call cmd_capture_plan. If CMD reports plan_needs_expansion, expand the coarse units; CMD must not invent the missing plan.
+  5) Show the DSL-like /cmd-review. Human may edit pending tasks/work_units or override routes. If the human says OK/approve, call cmd_approve_run (or they may use /cmd-run).
+  6) During execution re-read each work_unit before starting it. PENDING/READY work can change; RUNNING/DONE is locked.
+  7) After verification call cmd_complete_run, reflect on what was actually learned, then call cmd_learning_capture. User-approved/user-taught learning has higher authority than inferred learning.
+  8) Before substantial future work call cmd_learning_context and consider relevant ACTIVE/APPROVED lessons, without surrendering Hermes' orchestration authority.
+"""
+
 def register(ctx):
-    for name,schema in SCHEMAS.items(): ctx.register_tool(name=name,toolset="cmd-orchestrator",schema=schema,handler=HANDLERS[name])
+    for name,schema in SCHEMAS.items():
+        ctx.register_tool(name=name,toolset="cmd-orchestrator",schema=schema,handler=HANDLERS[name])
+
     cmds=[
-      ("cmd-status",c_status,"Show detailed run status and task/model plan.","[--json]"),
-      ("cmd-mode",c_mode,"Set routing mode.","[cheap|balanced|quality|fast]"),
-      ("cmd-auto",c_auto,"Set orchestration automation mode.","[off|review|on]"),
-      ("cmd-plan",c_plan,"Create, route, save and show a plan.","<work>"),
-      ("cmd-review",c_review,"Review task/model routes before execution.",""),
-      ("cmd-run",make_run(ctx),"Approve current plan and start execution.",""),
-      ("cmd-route",c_route,"Preview routing choice for a task.","<task>"),
-      ("cmd-model",c_model,"Show Hermes models or override a pending task route.","[TASK_ID auto|TASK_ID provider model]"),
-      ("cmd-models",c_models,"Show all models visible to Hermes.",""),
-      ("cmd-learning",c_learning,"Show adaptive routing statistics.",""),
+      ("cmd-status",c_status,"Show CMD control state and detailed Hermes work plan.","[--json]"),
+      ("cmd-prompt",c_prompt,"Review/select the full original vs Grill Me prompt.","[original|grilled|edit <prompt>]"),
+      ("cmd-plan",make_plan(ctx),"Manually ask Hermes for a detailed plan; normally automatic.","<work>"),
+      ("cmd-review",c_review,"Review Hermes task/work_unit/step plan and routes.",""),
+      ("cmd-edit",c_edit,"Edit a pending task/work_unit.","<ID> field=value ..."),
+      ("cmd-run",make_run(ctx),"Approve reviewed Hermes plan and execute.",""),
+      ("cmd-model",c_model,"Show Hermes models or override a pending work_unit route.","[W#.# auto|W#.# provider model]"),
+      ("cmd-models",c_models,"Alias: show all models visible to Hermes.",""),
+      ("cmd-learn",c_learn,"Review/edit/teach learning for Hermes.","[add|edit|approve|activate|disable|reject|delete ...]"),
+      ("cmd-learning",c_learning,"Alias of /cmd-learn.",""),
+      ("cmd-route",c_route,"Explain v1.2 routing ownership.","[task]"),
+      ("cmd-mode",c_mode,"Compatibility cost/quality hint; Hermes still owns routing.","[cheap|balanced|quality|fast]"),
+      ("cmd-auto",c_auto,"Set CMD intervention mode.","[off|review|on]"),
       ("cmd-checkpoint",c_checkpoint,"Force a durable checkpoint.","[note]"),
       ("cmd-resume",c_resume,"Resume latest interrupted run.","[run_id]"),
-      ("cmd-history",c_history,"Show recent orchestration runs.",""),
-      ("cmd-rescue",c_rescue,"Save emergency checkpoint and call local fm rescue.","[reason]"),
-      ("cmd-abort",c_abort,"Abort current run after checkpoint.","[reason]"),
-      ("cmd-help",c_help,"Show cmd-orchestrator commands.","")]
-    for n,h,d,ah in cmds: ctx.register_command(n,handler=h,description=d,args_hint=ah)
+      ("cmd-history",c_history,"Show recent runs.",""),
+      ("cmd-rescue",c_rescue,"Checkpoint and call local fm rescue.","[reason]"),
+      ("cmd-abort",c_abort,"Abort current run safely.","[reason]"),
+      ("cmd-help",c_help,"Show v1.2 control-plane commands.","")]
+    for n,h,d,ah in cmds:
+        ctx.register_command(n,handler=h,description=d,args_hint=ah)
 
     def pre_llm_call(**kw):
         st=load_settings(); r=STORE.current()
         if r: STORE.checkpoint(r["run_id"],"pre_llm_call",{"session_id":kw.get("session_id","")})
-        auto=st.get("auto","review")
-        if auto=="off": return None
+        if st.get("auto","review")=="off": return None
         msg=(kw.get("user_message") or "").strip()
         if not msg or msg.startswith("/cmd-"): return None
-        if auto=="review": return {"content":"cmd-orchestrator AUTO=review: for substantial work, call cmd_plan/cmd_orchestrate first. Show the task/model table and wait for /cmd-run; the operator may override routes with /cmd-model."}
-        if auto=="on": return {"content":"cmd-orchestrator AUTO=on: call cmd_orchestrate for substantial work. Before each task re-read its saved route because the operator may override any not-yet-started task. Follow the DAG, checkpoint and verify."}
-        return None
+
+        if r and r.get("status") not in ("DONE","FAILED","ABORTED"):
+            stage=r.get("current_stage") or ""
+            if stage=="prompt_review":
+                return {"content":"CMD stage=prompt_review. Interpret the user's reply as choosing/editing the displayed FULL prompt; call cmd_prompt_select. Do not execute the substantive task yet."}
+            if stage in ("hermes_plan","plan_expansion"):
+                return {"content":"CMD stage=Hermes planning. Hermes owns the plan. Produce/expand task -> work_unit -> step and call cmd_capture_plan; route each work_unit with Hermes' model choice."}
+            if stage=="review":
+                return {"content":"CMD stage=review. If the user requests edits, apply them with cmd_plan_patch. If they approve/OK, call cmd_approve_run and execute its returned instruction."}
+            if stage in ("execution","resume"):
+                return {"content":"CMD stage=execution. Re-read the current work_unit before starting it; honor human edits/route overrides only for not-yet-started units. Continue Hermes orchestration."}
+            if stage in ("learning","learning_review"):
+                return {"content":"CMD stage=learning. Hermes should record concise evidence-based reflection through cmd_learning_capture; the human may edit/approve it with /cmd-learn."}
+
+        return {"content":ORCHESTRATED_GUIDANCE}
 
     def post_tool_call(**kw):
         r=STORE.current()
@@ -49,18 +86,27 @@ def register(ctx):
             except Exception: log.exception("fm rescue failed")
         return None
 
-    def on_session_start(**kw): STORE.recover_stale(); return None
+    def on_session_start(**kw):
+        STORE.recover_stale(); return None
+
     def on_session_end(**kw):
         r=STORE.current()
-        if r and r.get("status") not in ("DONE","FAILED","ABORTED"): STORE.checkpoint(r["run_id"],"session_end",{"session_id":kw.get("session_id","")})
+        if not r:return None
+        if r.get("status") not in ("DONE","FAILED","ABORTED"):
+            STORE.checkpoint(r["run_id"],"session_end",{"session_id":kw.get("session_id","")})
+        else:
+            STORE.ensure_learning_fallback(r["run_id"])
         return None
-    for name,fn in (("pre_llm_call",pre_llm_call),("post_tool_call",post_tool_call),("on_session_start",on_session_start),("on_session_end",on_session_end)): ctx.register_hook(name,fn)
+
+    for name,fn in (("pre_llm_call",pre_llm_call),("post_tool_call",post_tool_call),("on_session_start",on_session_start),("on_session_end",on_session_end)):
+        ctx.register_hook(name,fn)
 
     def api_request_error(**kw):
         txt=str(kw); r=STORE.current()
         if r:
             STORE.checkpoint(r["run_id"],"api_request_error",{"error":txt[-2000:]})
-            if looks_limited(txt) and load_settings().get("fm_rescue",True): rescue(r["run_id"],"provider quota/rate limit")
+            if looks_limited(txt) and load_settings().get("fm_rescue",True):
+                rescue(r["run_id"],"provider quota/rate limit")
         return None
     try: ctx.register_hook("api_request_error",api_request_error)
     except Exception: pass
