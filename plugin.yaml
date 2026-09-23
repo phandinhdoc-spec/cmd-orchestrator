@@ -1,0 +1,18 @@
+name: cmd-orchestrator
+version: 1.0.1
+description: "Full multi-model orchestration for Hermes: planning, review/run/auto modes, adaptive routing, durable checkpoints, resume, verification tracking, learning, and Apple Intelligence fm rescue."
+provides_tools:
+  - cmd_orchestrate
+  - cmd_plan
+  - cmd_route
+  - cmd_models_refresh
+  - cmd_learning_stats
+provides_hooks:
+  - pre_llm_call
+  - post_tool_call
+  - on_session_start
+  - on_session_end
+  - api_request_error
+capabilities:
+  - llm.model_override
+  - llm.provider_override
