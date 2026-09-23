@@ -3,6 +3,7 @@ import json, shutil
 from pathlib import Path
 from .config import STATE_ROOT, RUNS_DIR, CURRENT_JSON, RUN_DB, LEARN_DB, SETTINGS_JSON, RESCUE_DIR
 from .storage import STORE
+from .learning_store import LEARNING
 
 MARKER = "# cmd-orchestrator v"
 PROJECT_FILES = (
@@ -120,7 +121,14 @@ def clean_all(deep=False, learning=False):
         if learning:
             for p in (LEARN_DB,Path(str(LEARN_DB)+"-wal"),Path(str(LEARN_DB)+"-shm")):
                 if _unlink(p): deleted.append(str(p))
-    return {"mode":"all","deep":bool(deep),"learning":bool(learning),"deleted":deleted,"count":len(deleted)}
+        # Keep the currently loaded Hermes process usable after a deep reset:
+        # recreate empty schemas, not historical data.
+        STORE.init_run_state()
+        STORE.init_plan_state()
+        if learning:
+            LEARNING.init()
+    return {"mode":"all","deep":bool(deep),"learning":bool(learning),"deleted":deleted,"count":len(deleted),
+            "note":"deep reset completed; empty runtime databases were reinitialized so Hermes can continue without restart" if deep else ""}
 
 def format_preview(data):
     lines=[f"CMD CLEAN PREVIEW  mode={data['scope']} deep={str(data['deep']).lower()}",
