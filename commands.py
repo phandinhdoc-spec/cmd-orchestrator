@@ -1,147 +1,269 @@
 from __future__ import annotations
-import json
+import json, shlex
 from .config import VERSION, load_settings, save_settings, hermes_model_catalog
-from .engine import create_plan
-from .router import route
-from .storage import STORE
+from .dsl import render_prompt_review, render_plan, render_learning
+from .engine import begin_prompt_review, select_prompt, patch_plan_item, approve_run
+from .planner import hermes_plan_contract
+from .storage import STORE, EDITABLE
 from .rescue import rescue
 
-def _task_table(ts):
-    if not ts: return ["  (no tasks)"]
-    out=["  ID    STATUS       PROVIDER        MODEL                         TASK",
-         "  ----  -----------  --------------  ----------------------------  ------------------------------"]
-    for t in ts:
-        out.append(f"  {t['task_id']:<4}  {t['status']:<11}  {(t.get('provider') or '-')[:14]:<14}  {(t.get('model') or '-')[:28]:<28}  {t.get('title') or '-'}")
-        if t.get("reasoning"): out.append(f"        why: {t['reasoning']}")
-    return out
 
-def fmt_status(tasks=True):
+def fmt_status(include_plan=True):
     r=STORE.current()
-    if not r: return f"CMD ORCHESTRATOR v{VERSION}\nNo saved run."
-    ts=STORE.tasks(r["run_id"]); cp=STORE.latest_cp(r["run_id"])
-    total=r.get("total_tasks",0) or 0; done=r.get("completed_tasks",0) or 0
-    pct=int(done*100/total) if total else 0; fill=round(pct/5); bar="█"*fill+"░"*(20-fill)
-    cur=next((x for x in ts if x["task_id"]==r.get("current_task")),None) or {}
-    out=[f"CMD ORCHESTRATOR v{VERSION}","",f"Project      : {r.get('project') or '-'}",f"Run          : {r['run_id']}",
-         f"State        : {r['status']} / {r.get('current_stage') or '-'}",f"Mode / Auto  : {r.get('mode')} / {r.get('auto_mode')}",
-         f"Review       : {r.get('review_state')}",f"Progress     : {done}/{total}  {bar} {pct}%",
-         f"Current      : {r.get('current_task') or '-'}",f"Current route: {cur.get('provider') or '-'} / {cur.get('model') or '-'}",
-         f"Checkpoint   : {(cp or {}).get('created_at',r.get('updated_at'))}",
-         f"Reason       : {(cp or {}).get('event',r.get('last_checkpoint_reason'))}","Resume-safe  : YES"]
-    if tasks:
-        out+=["","TASK / MODEL PLAN:",*_task_table(ts),"",
-              "Change a not-yet-started task: /cmd-model <TASK_ID> <provider> <model>",
-              "Return a task to automatic routing: /cmd-model <TASK_ID> auto"]
+    if not r:
+        return f"CMD CONTROL PLANE v{VERSION}\nNo saved run.\nHermes remains the orchestrator."
+    cp=STORE.latest_cp(r["run_id"])
+    units=STORE.work_units(r["run_id"])
+    total=len(units) or r.get("total_tasks",0) or 0
+    done=sum(1 for u in units if u.get("status")=="DONE") if units else r.get("completed_tasks",0) or 0
+    pct=int(done*100/total) if total else 0
+    current=next((u for u in units if u["unit_id"]==r.get("current_task")),None) or {}
+    out=[
+        f"CMD CONTROL PLANE v{VERSION}",
+        "owner = Hermes",
+        f"run = {r['run_id']}",
+        f"state = {r.get('status')}",
+        f"stage = {r.get('current_stage') or '-'}",
+        f"review = {r.get('review_state') or '-'}",
+        f"progress = {done}/{total} ({pct}%)",
+        f"current = {r.get('current_task') or '-'}",
+        f"route = {(current.get('provider') or '-')}/{(current.get('model') or '-')}",
+        f"route_source = {current.get('route_source') or '-'}",
+        f"checkpoint = {(cp or {}).get('event',r.get('last_checkpoint_reason')) or '-'}",
+    ]
+    if r.get("current_stage")=="prompt_review":
+        out += ["",render_prompt_review(STORE.prompt(r["run_id"]))]
+    elif include_plan:
+        out += ["",render_plan(STORE.plan_tree(r["run_id"]),r)]
     return "\n".join(out)
+
 
 def c_status(a):
     r=STORE.current()
-    if not r: return f"CMD ORCHESTRATOR v{VERSION}\nNo saved run."
-    if "--json" in (a or ""): return json.dumps({"version":VERSION,"run":r,"tasks":STORE.tasks(r["run_id"])},ensure_ascii=False,indent=2)
+    if not r: return fmt_status(True)
+    if "--json" in (a or ""):
+        return json.dumps({"version":VERSION,"run":r,"prompt":STORE.prompt(r["run_id"]),"plan":STORE.plan_tree(r["run_id"])},ensure_ascii=False,indent=2)
     return fmt_status(True)
+
 
 def c_mode(a):
     x=(a or "").strip(); st=load_settings()
-    if not x: return f"mode={st['mode']}"
+    if not x: return f"mode={st.get('mode')} (compatibility hint only; Hermes owns routing)"
     if x not in ("cheap","balanced","quality","fast"): return "Usage: /cmd-mode <cheap|balanced|quality|fast>"
-    st["mode"]=x; save_settings(st); return f"cmd-orchestrator mode -> {x}"
+    st["mode"]=x; save_settings(st)
+    return f"mode hint -> {x}; Hermes still owns default planning/routing"
+
 
 def c_auto(a):
     x=(a or "").strip(); st=load_settings()
-    if not x: return f"auto={st['auto']}"
+    if not x: return f"auto={st.get('auto')}"
     if x not in ("off","review","on"): return "Usage: /cmd-auto <off|review|on>"
-    st["auto"]=x; save_settings(st); return f"cmd-orchestrator auto -> {x}"
+    st["auto"]=x; save_settings(st); return f"cmd control mode -> {x}"
 
-def c_plan(a):
-    req=(a or "").strip()
-    if not req: return "Usage: /cmd-plan <công việc>"
-    rid,_=create_plan(req)
-    return f"Plan saved: {rid}\n\n"+fmt_status(True)+"\n\nReview routes above; use /cmd-model to change any task, then /cmd-run."
+
+def make_plan(ctx):
+    def c_plan(a):
+        req=(a or "").strip()
+        if not req: return "Usage: /cmd-plan <công việc>"
+        instruction=(
+            "Manual /cmd-plan requested. Hermes owns planning. First run Grill Me/grill-tab for the user's request if available, "
+            f"then call cmd_prompt_capture with original_prompt={req!r} and the FULL grilled prompt. Show both full prompts and wait for selection. "
+            "After selection, create a detailed task -> work_unit -> step plan; choose provider/model per independently routable work_unit; "
+            "call cmd_capture_plan. If CMD reports coarse units, expand them. Then show /cmd-review and wait for approval."
+        )
+        try:
+            ctx.inject_message(instruction,role="user")
+            return "Manual Hermes planning requested. Hermes will run Grill Me, capture both full prompts, then present prompt review before planning."
+        except Exception as e:
+            return f"Could not inject Hermes instruction: {e}\nTell Hermes:\n{instruction}"
+    return c_plan
+
+
+def c_prompt(a):
+    r=STORE.current()
+    if not r: return "No active run."
+    raw=(a or "").strip()
+    if not raw:
+        return render_prompt_review(STORE.prompt(r["run_id"])) + "\n\nUse: /cmd-prompt original | grilled | edit <full prompt>"
+    if raw.lower()=="original":
+        select_prompt("original",run_id=r["run_id"])
+    elif raw.lower()=="grilled":
+        select_prompt("grilled",run_id=r["run_id"])
+    elif raw.lower().startswith("edit "):
+        select_prompt("edited",raw[5:].strip(),r["run_id"])
+    else:
+        return "Usage: /cmd-prompt original | grilled | edit <full prompt>"
+    return render_prompt_review(STORE.prompt(r["run_id"])) + "\n\nPrompt selected. Hermes should now create the detailed plan."
+
 
 def c_review(a):
     r=STORE.current()
     if not r: return "No saved run."
-    return f"REVIEW {r['run_id']} [{r.get('review_state')}]\n\n"+"\n".join(_task_table(STORE.tasks(r["run_id"])))+"\n\nChange READY/PENDING task: /cmd-model <TASK_ID> <provider> <model>\nRestore auto: /cmd-model <TASK_ID> auto\nThen use /cmd-run."
+    text=render_plan(STORE.plan_tree(r["run_id"]),r)
+    return text + "\n\nEdit pending work: /cmd-edit <ID> field=value ...\nChange route: /cmd-model <WORK_UNIT> <provider> <model>\nRestore Hermes route: /cmd-model <WORK_UNIT> auto\nApprove: /cmd-run"
+
+
+def _parse_edits(raw):
+    tokens=shlex.split(raw)
+    changes={}
+    for tok in tokens:
+        if "=" not in tok: continue
+        k,v=tok.split("=",1)
+        k=k.strip(); v=v.strip()
+        if k=="dependencies": v=[x for x in v.split(",") if x]
+        changes[k]=v
+    return changes
+
+
+def c_edit(a):
+    raw=(a or "").strip()
+    if not raw: return "Usage: /cmd-edit <TASK_OR_WORK_UNIT> field=value [field=value ...]"
+    parts=raw.split(maxsplit=1)
+    if len(parts)<2: return "Usage: /cmd-edit <ID> title='...' description='...' dependencies=W1.1,W1.2 risk=high verification='...'"
+    item_id,rest=parts
+    changes=_parse_edits(rest)
+    allowed={"title","description","dependencies","task_class","risk","verification"}
+    changes={k:v for k,v in changes.items() if k in allowed}
+    if not changes: return "No editable fields found. Fields: title, description, dependencies, task_class, risk, verification"
+    try:
+        patch_plan_item(item_id,changes)
+    except Exception as e:
+        return f"Edit rejected: {e}"
+    return c_review("")
+
 
 def make_run(ctx):
     def c_run(a):
-        r=STORE.current()
-        if not r: return "No saved run. Use /cmd-plan or /cmd-orchestrate first."
-        STORE.set_run(r["run_id"],status="RUNNING",stage="execution",review_state="APPROVED")
-        STORE.checkpoint(r["run_id"],"run_approved",{"source":"cmd-run"})
-        instruction=(f"Continue cmd-orchestrator run {r['run_id']}. Before EACH task, re-read the saved task row and use its current provider/model route; "
-                     "the operator may change routes for tasks that have not started yet. Execute only READY/PENDING tasks whose dependencies are DONE. "
-                     "Verify each task before marking DONE. Checkpoint after important tool calls. Do not redo DONE tasks. At the end follow project Git/GitHub rules.")
         try:
-            ctx.inject_message(instruction,role="user")
-            return f"Run approved: {r['run_id']}\nExecution instruction injected into Hermes.\n\n"+fmt_status(True)
+            result=approve_run()
         except Exception as e:
-            return f"Run approved: {r['run_id']}\nCould not inject automatically: {e}\nTell Hermes: {instruction}"
+            return f"Cannot run: {e}"
+        try:
+            ctx.inject_message(result["instruction"],role="user")
+            return f"Approved: {result['run_id']}\nHermes execution instruction injected.\n\n"+fmt_status(True)
+        except Exception as e:
+            return f"Approved: {result['run_id']}\nCould not inject automatically: {e}\nTell Hermes:\n{result['instruction']}"
     return c_run
 
-def c_route(a):
-    s=(a or "").strip()
-    if not s:return "Usage: /cmd-route <task>"
-    return json.dumps(route(s),ensure_ascii=False,indent=2)
 
 def c_model(a):
     raw=(a or "").strip()
     if not raw: return json.dumps(hermes_model_catalog(),ensure_ascii=False,indent=2)
     parts=raw.split()
-    if len(parts)<2: return "Usage: /cmd-model <TASK_ID> auto | /cmd-model <TASK_ID> <provider> <model>"
+    if len(parts)<2: return "Usage: /cmd-model <WORK_UNIT> auto | /cmd-model <WORK_UNIT> <provider> <model>"
     r=STORE.current()
-    if not r:return "No saved run."
-    tid=parts[0]
-    task=next((t for t in STORE.tasks(r["run_id"]) if t["task_id"].lower()==tid.lower()),None)
-    if not task:return f"Unknown task: {tid}"
-    if task["status"] not in ("PENDING","READY"):
-        return f"Cannot change {task['task_id']}: status={task['status']}. Only PENDING/READY tasks can be changed."
+    if not r: return "No saved run."
+    uid=parts[0]
+    unit=STORE.unit(r["run_id"],uid)
+    if not unit: return f"Unknown work_unit: {uid}. v1.2 routes at work_unit level."
+    if unit.get("status") not in EDITABLE:
+        return f"Cannot change {uid}: status={unit.get('status')}. Only not-yet-started work_units are editable."
     if parts[1].lower()=="auto":
-        rr=route(task.get("description",""),task.get("task_class","general"),task.get("risk","medium"),r.get("mode"))
-        provider,model,reason=rr["provider"],rr["model"],"operator reset to auto; "+rr["reason"]
+        STORE.reset_unit_to_hermes(r["run_id"],uid)
     else:
-        if len(parts)<3:return "Usage: /cmd-model <TASK_ID> <provider> <model>"
-        provider=parts[1]; model=" ".join(parts[2:]); reason="operator override"
-    STORE.update_task(r["run_id"],task["task_id"],provider=provider,model=model,reasoning=reason)
-    STORE.checkpoint(r["run_id"],"model_override",{"task_id":task["task_id"],"provider":provider,"model":model},task["task_id"])
-    return f"Route updated: {task['task_id']} -> {provider} / {model}\n\n"+fmt_status(True)
+        if len(parts)<3: return "Usage: /cmd-model <WORK_UNIT> <provider> <model>"
+        provider=parts[1]; model=" ".join(parts[2:])
+        STORE.update_unit(r["run_id"],uid,provider=provider,model=model,reasoning="operator override",route_source="operator")
+    return c_review("")
 
-def c_models(a): return json.dumps(hermes_model_catalog(),ensure_ascii=False,indent=2)
+
+def c_models(a): return c_model("")
+
+def c_route(a):
+    return "CMD v1.2 does not independently choose the default route. Hermes chooses provider/model per work_unit; use /cmd-model only to inspect/override."
+
+
 def c_checkpoint(a):
     r=STORE.current()
     if not r:return "No saved run."
     STORE.checkpoint(r["run_id"],"manual_checkpoint",{"note":a}); return f"Checkpoint saved: {r['run_id']}"
+
+
 def c_resume(a):
     r=STORE.resume((a or "").strip() or None)
     if not r:return "No resumable run."
     return f"Resumed: {r['run_id']}\n"+fmt_status(True)
+
+
 def c_abort(a):
     r=STORE.current()
     if not r:return "No saved run."
     STORE.checkpoint(r["run_id"],"abort_requested",{"note":a}); STORE.set_run(r["run_id"],status="ABORTED",stage="aborted")
+    STORE.ensure_learning_fallback(r["run_id"])
     return f"Aborted safely: {r['run_id']}"
+
+
 def c_history(a):
-    rows=STORE.history(); return "CMD HISTORY\n"+"\n".join(f"{x['run_id']}  {x['status']:<12} {x.get('completed_tasks',0)}/{x.get('total_tasks',0)}  {x.get('updated_at')}" for x in rows)
-def c_learning(a): return json.dumps(STORE.learning_stats(),ensure_ascii=False,indent=2)
+    rows=STORE.history(); return "CMD HISTORY\n"+"\n".join(f"{x['run_id']}  {x['status']:<14} {x.get('completed_tasks',0)}/{x.get('total_tasks',0)}  {x.get('updated_at')}" for x in rows)
+
+
+def c_learn(a):
+    raw=(a or "").strip()
+    if not raw:
+        return render_learning(STORE.learnings(50)) + "\n\n/cmd-learn add <text> | edit <L#> <text> | approve <L#> | activate <L#> | disable <L#> | reject <L#> | delete <L#>"
+    parts=raw.split(maxsplit=2)
+    cmd=parts[0].lower()
+    if cmd=="add":
+        text=raw[len(parts[0]):].strip()
+        if not text: return "Usage: /cmd-learn add <lesson/rule>"
+        lid=STORE.add_learning(text,kind="rule",source="user",status="ACTIVE",scope="general",confidence="high",priority=100)
+        return f"User-taught rule saved as {lid}.\n\n"+render_learning([STORE.learning(lid)])
+    if len(parts)<2: return "Usage: /cmd-learn <edit|approve|activate|disable|reject|delete> <L#> [text]"
+    lid=parts[1]
+    if not STORE.learning(lid): return f"Unknown learning: {lid}"
+    if cmd=="edit":
+        if len(parts)<3 or not parts[2].strip(): return f"Usage: /cmd-learn edit {lid} <new statement>"
+        STORE.update_learning(lid,statement=parts[2].strip(),source="user",priority=100)
+    elif cmd=="approve": STORE.update_learning(lid,status="APPROVED",priority=max(80,int(STORE.learning(lid).get("priority") or 0)))
+    elif cmd=="activate": STORE.update_learning(lid,status="ACTIVE")
+    elif cmd=="disable": STORE.update_learning(lid,status="DISABLED")
+    elif cmd=="reject": STORE.update_learning(lid,status="REJECTED")
+    elif cmd=="delete":
+        STORE.delete_learning(lid); return f"Deleted {lid}."
+    else: return "Unknown action. Use edit/approve/activate/disable/reject/delete."
+    return render_learning([STORE.learning(lid)])
+
+
+def c_learning(a):
+    return c_learn(a)
+
+
 def c_rescue(a): return json.dumps(rescue(reason=(a or "manual /cmd-rescue")),ensure_ascii=False,indent=2)
+
+
 def c_help(a):
-    return """cmd-orchestrator v1.1 commands
-/cmd-status [--json]                 detailed run + task/model table
-/cmd-mode [cheap|balanced|quality|fast]
-/cmd-auto [off|review|on]
-/cmd-plan <work>                     plan AND route every task before execution
-/cmd-review                          inspect task/model plan
-/cmd-run                             approve current plan and execute
-/cmd-route <task>                    preview automatic routing
-/cmd-model                           models visible to Hermes
-/cmd-model <T#> <provider> <model>   override a not-yet-started task
-/cmd-model <T#> auto                 restore automatic routing
-/cmd-models                          alias: full Hermes-visible model catalog
-/cmd-learning
-/cmd-checkpoint
+    return f"""cmd-orchestrator v{VERSION} — Hermes control plane
+
+DEFAULT FLOW
+user prompt -> Hermes decides DIRECT vs ORCHESTRATED
+ORCHESTRATED -> Grill Me -> full prompt review -> Hermes detailed plan -> task review -> run -> learning review
+
+COMMANDS
+/cmd-status [--json]                    full control state in DSL-like form
+/cmd-prompt                              show FULL original + grilled prompts
+/cmd-prompt original|grilled             choose prompt
+/cmd-prompt edit <full prompt>            choose edited prompt
+/cmd-plan <work>                          manually request Hermes planning (normally automatic)
+/cmd-review                               task -> work_unit -> step plan + Hermes routes
+/cmd-edit <ID> field=value ...            edit pending task/work_unit metadata
+/cmd-run                                  approve reviewed plan
+/cmd-model                                Hermes-visible model catalog
+/cmd-model <W#.#> <provider> <model>      operator route override
+/cmd-model <W#.#> auto                    restore Hermes' original route
+/cmd-models                               alias of /cmd-model
+/cmd-learn                                show what Hermes/CMD/user taught the system
+/cmd-learn add <text>                     teach Hermes a high-priority active rule
+/cmd-learn edit <L#> <text>               correct a lesson
+/cmd-learn approve|activate|disable|reject|delete <L#>
+/cmd-checkpoint [note]
 /cmd-resume [run_id]
 /cmd-history
 /cmd-rescue [reason]
-/cmd-abort
+/cmd-abort [reason]
+/cmd-auto [off|review|on]
+/cmd-mode [cheap|balanced|quality|fast]    compatibility hint only; Hermes owns routing
 /cmd-help
+
+PLAN CONTRACT
+{json.dumps(hermes_plan_contract(),ensure_ascii=False,indent=2)}
 """
