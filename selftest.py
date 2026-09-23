@@ -3,36 +3,51 @@ from __future__ import annotations
 import os, subprocess, sys, tempfile
 from pathlib import Path
 HERE=Path(__file__).resolve().parent
-code=r"""
-import sys,os
-sys.path.insert(0,os.environ["PARENT"])
-import importlib
-pkg=importlib.import_module("cmd-orchestrator-v1.0.0".replace("-","_"))
-"""
-# We test modules by copying them to a valid package name in isolated HOME.
+
 with tempfile.TemporaryDirectory() as td:
     home=Path(td)/"home"; home.mkdir()
     pkg=Path(td)/"cmd_orchestrator"; pkg.mkdir()
     for p in HERE.glob("*.py"):
         if p.name in ("selftest.py","install.py"): continue
         (pkg/p.name).write_bytes(p.read_bytes())
-    script=r"""
-import os,sys,json
+    script=r'''
+import os,sys
 sys.path.insert(0,os.environ["TD"])
-import cmd_orchestrator.config as cfg
+from cmd_orchestrator.config import VERSION
 from cmd_orchestrator.storage import STORE
-from cmd_orchestrator.engine import orchestrate
-from cmd_orchestrator.commands import fmt_status
-x=orchestrate("test multi file project",project="SELFTEST",repository="local")
+from cmd_orchestrator.engine import begin_prompt_review,select_prompt,capture_hermes_plan,approve_run,update_work_unit,complete_run
+from cmd_orchestrator.dsl import render_plan
+
+assert VERSION=="1.2.0"
+x=begin_prompt_review("write feature","GRILLED: write feature with tests",project="SELFTEST")
 rid=x["run_id"]
-assert STORE.run(rid)["total_tasks"]>=1
-STORE.update_task(rid,"T1",status="DONE",verification="PASS")
-STORE.set_run(rid,status="INTERRUPTED")
-r=STORE.resume(rid)
-assert r["status"]=="RUNNING"
-assert "CMD ORCHESTRATOR v1.0.0" in fmt_status(True)
-print("SELFTEST PASS",rid)
-"""
+assert STORE.prompt(rid)["status"]=="PENDING"
+select_prompt("grilled",run_id=rid)
+plan={"summary":"feature","tasks":[
+ {"id":"T1","title":"Design","description":"design interfaces","dependencies":[],"work_units":[
+   {"id":"W1.1","title":"Interface design","description":"define contract","dependencies":[],"task_class":"design","risk":"medium","provider":"commandcode","model":"terra","reasoning":"Hermes selected balanced model","verification":"contract reviewed","steps":[{"id":"S1.1.1","title":"inspect"},{"id":"S1.1.2","title":"define interfaces"}]}
+ ]},
+ {"id":"T2","title":"Implementation","description":"mixed difficulty","dependencies":["T1"],"work_units":[
+   {"id":"W2.1","title":"Easy helpers","description":"mechanical helpers","dependencies":["W1.1"],"task_class":"implementation","risk":"low","provider":"commandcode","model":"luna","reasoning":"Hermes selected cheap model","verification":"unit tests","steps":[{"id":"S2.1.1","title":"helper a"},{"id":"S2.1.2","title":"helper b"}]},
+   {"id":"W2.2","title":"Hard algorithm","description":"state machine","dependencies":["W2.1"],"task_class":"algorithm","risk":"high","provider":"commandcode","model":"sol","reasoning":"Hermes selected strong model","verification":"edge tests","steps":[{"id":"S2.2.1","title":"state design"},{"id":"S2.2.2","title":"edge cases"}]}
+ ]}
+]}
+y=capture_hermes_plan(plan,rid)
+assert not y["quality"]["needs_expansion"], y
+assert len(STORE.work_units(rid))==3
+assert "work_unit W2.2" in render_plan(STORE.plan_tree(rid),STORE.run(rid))
+STORE.update_unit(rid,"W2.1",provider="manual",model="cheap",route_source="operator")
+STORE.reset_unit_to_hermes(rid,"W2.1")
+assert STORE.unit(rid,"W2.1")["model"]=="luna"
+approve_run(rid)
+update_work_unit("W1.1",status="DONE",verification="PASS",run_id=rid)
+update_work_unit("W2.1",status="DONE",verification="PASS",run_id=rid)
+update_work_unit("W2.2",status="DONE",verification="PASS",run_id=rid)
+complete_run(True,"ok",rid)
+lid=STORE.add_learning("Use focused search before broad scans",kind="rule",source="user",status="ACTIVE",confidence="high")
+assert STORE.learning(lid)["status"]=="ACTIVE"
+print("SELFTEST PASS",rid,lid)
+'''
     env=os.environ.copy(); env["HOME"]=str(home); env["TD"]=td
     cp=subprocess.run([sys.executable,"-c",script],env=env,text=True,capture_output=True)
     print(cp.stdout,end="")
