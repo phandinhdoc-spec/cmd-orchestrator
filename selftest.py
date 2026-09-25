@@ -18,7 +18,7 @@ from cmd_orchestrator.storage import STORE
 from cmd_orchestrator.engine import begin_prompt_review,select_prompt,capture_hermes_plan,approve_run,update_work_unit,complete_run
 from cmd_orchestrator.dsl import render_plan
 
-assert VERSION=="1.3.1"
+assert VERSION=="1.3.2"
 x=begin_prompt_review("write feature","GRILLED: write feature with tests",project="SELFTEST")
 rid=x["run_id"]
 assert STORE.prompt(rid)["status"]=="PENDING"
