@@ -128,5 +128,5 @@ def create_plan(request,project="",repository="",session_id=""):
     return result["run_id"], {"owner":"cmd_control_plane","status":"planning_l1","contract":hermes_plan_contract()}
 
 def orchestrate(request,project="",repository="",mode=None,session_id=""):
-    result=begin_prompt_review(request,"",project,repository,session_id)
+    result=begin_planning(request,project,repository,session_id)
     return {**result,"owner":"cmd_control_plane","contract":hermes_plan_contract(),"note":"CMD v1.4.0 owns the control/management plane; Hermes is the agent runtime, strong planner designs, scouts procure reusable components, coders execute contracts."}
