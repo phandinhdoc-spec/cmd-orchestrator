@@ -15,11 +15,11 @@ import os,sys
 sys.path.insert(0,os.environ["TD"])
 from cmd_orchestrator.config import VERSION
 from cmd_orchestrator.storage import STORE
-from cmd_orchestrator.engine import begin_prompt_review,select_prompt,capture_hermes_plan,approve_run,update_work_unit,complete_run
+from cmd_orchestrator.engine import begin_prompt_review,select_prompt,capture_hermes_plan,approve_run,update_work_unit,complete_run,work_packet
 from cmd_orchestrator.scheduler import ready_frontier
 from cmd_orchestrator.dsl import render_plan
 
-assert VERSION=="1.3.3"
+assert VERSION=="1.4.0"
 x=begin_prompt_review("write feature","GRILLED: write feature with tests",project="SELFTEST")
 rid=x["run_id"]
 assert STORE.prompt(rid)["status"]=="PENDING"
@@ -65,7 +65,16 @@ assert [u["unit_id"] for u in front["ready"]]==["W1.1"], front
 update_work_unit("W1.1",status="DONE",verification="PASS",run_id=rid)
 front=ready_frontier(rid)
 assert {u["unit_id"] for u in front["ready"]}=={"W2.1","W2.2"}, front
-update_work_unit("W2.1",status="DONE",verification="PASS",run_id=rid)
+packet=work_packet("W2.1",rid)
+assert packet["unit_id"]=="W2.1" and "Do not reread" in packet["instruction"], packet
+update_work_unit("W2.1",status="DONE",verification="PASS",output_summary="helper complete",files_touched=["feature.py"],run_id=rid)
+checked=work_packet("W2.1",rid)
+assert checked["immutable"] and checked["status"]=="DONE", checked
+try:
+    update_work_unit("W2.1",status="RUNNING",run_id=rid)
+    raise AssertionError("DONE unit reopened without explicit replan")
+except ValueError as e:
+    assert "immutable" in str(e)
 update_work_unit("W2.2",status="DONE",verification="PASS",run_id=rid)
 complete_run(True,"ok",rid)
 lid=STORE.add_learning("Use focused search before broad scans",kind="rule",source="user",status="ACTIVE",confidence="high")
