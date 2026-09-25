@@ -1,4 +1,4 @@
-# cmd-orchestrator v1.2.1
+# cmd-orchestrator v1.3.0
 
 `cmd-orchestrator` is a **control plane for Hermes**, not a second orchestrator.
 
@@ -80,6 +80,22 @@ Plan deeply. Execute efficiently.
 ```
 
 CMD validates whether a Hermes plan is too coarse, but CMD does not invent the missing plan. It asks Hermes to expand it.
+
+## v1.3 execution policy: library-first + atomic multi-agent
+
+For code, CMD now treats an independently changeable **function/method as the default atomic work unit**. Before any custom implementation, Hermes must create/perform library discovery: inspect project dependencies, standard/framework APIs, official packages, then suitable maintained third-party libraries. Reimplementing functionality already supplied by a suitable library is a hard planning failure.
+
+```text
+library discovery -> freeze interfaces -> atomic function work units -> READY DAG frontier
+                                                        |-> worker A
+                                                        |-> worker B
+                                                        |-> worker C
+                                                   -> integration/regression
+```
+
+Independent READY units should be assigned to separate workers concurrently up to `max_parallel` (default 3). Units with overlapping write scopes must not run concurrently. Workers do not recursively spawn/orchestrate other workers: Hermes remains the single parent orchestrator and performs final integration.
+
+Tiny getters/setters/generated wrappers may be grouped only when coordination cost would exceed the work itself. Custom code must have either a dependency on a `library_discovery` unit or explicit `library_evidence` showing why reuse is insufficient.
 
 ## Prompt review
 
