@@ -2,7 +2,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-VERSION = "1.4.0"
+VERSION = "1.5.0"
 PLUGIN_ID = "cmd-orchestrator"
 
 STATE_ROOT = Path.home() / ".hermes" / "state" / PLUGIN_ID
@@ -16,14 +16,32 @@ SETTINGS_JSON = STATE_ROOT / "settings.json"
 DEFAULT_SETTINGS = {
     "version": VERSION,
     "auto": "review",
-    "mode": "balanced",  # compatibility only; Hermes owns routing in v1.2
+    "mode": "balanced",
     "routing_owner": "cmd_control_plane",
     "role_routing": True,
-    "planner_requires_strong_reasoning": True,
-    "planner_preferred_models": ["sol", "deepseek-v4-pro"],
+
+    # v1.5 HARD-LOCKED role policy. These are policy constants, not hints.
+    "locked_roles": {
+        "planner": {"provider": "agy", "model": "gemini-3.8-flash"},
+        "secretary": {"provider": "commandcode", "model": "muse-spark-1.3-contributor"},
+        "manager": {"provider": "commandcode", "model": "deepseek-v4-flash-fast",
+                    "fallback_provider": "commandcode", "fallback_model": "muse-spark-1.3-contributor"},
+        "incident_analyst": {"provider": "commandcode", "models": ["sol", "mimo-v4-pro"], "confirmed_user_defect_only": True},
+        "patcher": {"provider": "commandcode", "model": "terra", "confirmed_user_defect_only": True},
+    },
+    "allow_plan_model_override": False,
+    "allow_secretary_model_override": False,
+    "allow_manager_model_override": False,
+    "allow_incident_models_on_normal_path": False,
+    "incident_requires_user_feedback": True,
+    "incident_requires_hermes_confirmation": True,
+    "patcher_receives_bounded_packet": True,
+
+    "planner_requires_strong_reasoning": False,
+    "planner_preferred_models": ["gemini-3.8-flash"],
     "scout_preferred_models": ["muse-spark-1.3-contributor"],
     "coder_policy": "cheapest_capable_after_algorithm_contract",
-    "secretary_policy": "interaction_only_no_architecture_authority",
+    "secretary_policy": "muse_spark_1_3_contributor_checkin_only",
     "simple_path": "hermes_direct",
     "grill_for_substantial": True,
     "require_prompt_review": True,
@@ -41,12 +59,10 @@ DEFAULT_SETTINGS = {
     "checkpoint_every_tool": True,
     "fm_rescue": True,
     "learning_review": True,
-    # Kept for backward compatibility and emergency fallback only.
     "models": {
         "emergency_local": {"provider": "local", "model": "fm", "cost": "local"},
         "cheap_fast": {"provider": "commandcode", "model": "auto-cheap", "cost": "low"},
         "balanced": {"provider": "commandcode", "model": "auto-balanced", "cost": "medium"},
-        "strong": {"provider": "commandcode", "model": "auto-strong", "cost": "high"},
     },
 }
 
