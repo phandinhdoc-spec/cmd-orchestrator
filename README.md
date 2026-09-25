@@ -1,4 +1,4 @@
-# cmd-orchestrator v1.3.3
+# cmd-orchestrator v1.4.0
 
 `cmd-orchestrator` is a **control plane for Hermes**, not a second orchestrator.
 
@@ -82,7 +82,7 @@ Plan deeply. Execute efficiently.
 
 CMD validates whether a Hermes plan is too coarse, but CMD does not invent the missing plan. It asks Hermes to expand it.
 
-## v1.3.3 role hierarchy
+## v1.4.0 role hierarchy
 
 CMD now separates **authority from the session's default model**. CMD is the control/management plane; Hermes is the execution director/runtime; the default model acts as a SECRETARY for interaction and control-plane bookkeeping, not architecture decisions.
 
@@ -110,6 +110,25 @@ library discovery -> freeze interfaces -> atomic function work units -> READY DA
 Independent READY units should be assigned to separate workers concurrently up to `max_parallel` (default 3). Units with overlapping write scopes must not run concurrently. Workers do not recursively spawn/orchestrate other workers. CMD remains the control-plane authority; Hermes performs runtime dispatch and integration actions.
 
 Tiny getters/setters/generated wrappers may be grouped only when coordination cost would exceed the work itself. Custom code must have either a dependency on a `library_discovery` unit or explicit `library_evidence` showing why reuse is insufficient.
+
+## v1.4 secretary check-in + bounded handoff
+
+After an atomic work unit finishes verification, the SECRETARY immediately writes a durable `unit_checkin` for Hermes. A checked-in `DONE/SKIPPED` unit is immutable and is not sent to later workers. This is both a loop guard and a context-saving rule.
+
+Workers receive a **work packet**, not the full project plan:
+
+```text
+Hermes -> cmd_work_packet(W2.1) -> model A
+                              |
+                    model A limit / unavailable
+                              v
+                         model C
+                   same input contract
+                   same output contract
+                   same verification
+```
+
+The replacement model continues only the unfinished unit. It does not audit completed work or reread the whole plan. Hermes keeps the global DAG/check-in ledger and routes the next READY packet.
 
 ## Run-to-completion
 
