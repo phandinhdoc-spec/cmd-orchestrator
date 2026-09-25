@@ -1,4 +1,4 @@
-# cmd-orchestrator v1.3.2
+# cmd-orchestrator v1.3.3
 
 `cmd-orchestrator` is a **control plane for Hermes**, not a second orchestrator.
 
@@ -82,7 +82,7 @@ Plan deeply. Execute efficiently.
 
 CMD validates whether a Hermes plan is too coarse, but CMD does not invent the missing plan. It asks Hermes to expand it.
 
-## v1.3.2 role hierarchy
+## v1.3.3 role hierarchy
 
 CMD now separates **authority from the session's default model**. CMD is the control/management plane; Hermes is the execution director/runtime; the default model acts as a SECRETARY for interaction and control-plane bookkeeping, not architecture decisions.
 
