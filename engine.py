@@ -78,10 +78,29 @@ def execution_instruction(rid):
         "starting it because the operator may edit any READY/PENDING unit or route. Execute dependencies first. Role hierarchy is mandatory: the session/default model is SECRETARY only; architecture, algorithm and DAG decisions belong to a strong PLANNER (prefer Sol or DeepSeek V4 Pro when available). SCOUT workers search for ready-made libraries/packages/tools and their usage/API, not tutorials for recreating internals (prefer Muse Spark 1.3 Contributor when available). Before custom code, enforce library-first reuse. CODER workers receive the planner algorithm/contract and use the cheapest capable model; they must escalate instead of redesigning it. VERIFIER may reject but escalates design changes to PLANNER. For code, treat each independently changeable function/method work_unit as atomic. Call cmd_ready_batch to obtain the dependency-ready, write-scope-safe frontier, then dispatch each returned READY unit to a separate worker concurrently up to settings.max_parallel. Workers must not recursively orchestrate; CMD owns orchestration policy and Hermes performs runtime dispatch. Treat steps as "
         "an internal checklist, not separate agent calls unless Hermes decides that is necessary. Use the provider/model stored on "
         "each work_unit; route_source=operator overrides Hermes' original route. Verify each unit before DONE and checkpoint material "
-        "progress. Do not redo DONE units. At the end call cmd_complete_run, then perform a concise Hermes reflection and call "
+        "progress. Each worker receives only cmd_work_packet for its unit, not the full plan. When a unit passes verification, immediately call cmd_unit_update status=DONE with a concise output_summary/files_touched: this is the SECRETARY check-in handed to Hermes. DONE/SKIPPED units are immutable and must be excluded from later worker context. If a model limits or is replaced, route the same unfinished work packet to the replacement model with explicit input/output/verification; do not make it reread the full plan. At the end call cmd_complete_run, then perform a concise Hermes reflection and call "
         "cmd_learning_capture with actual lessons; do not invent a rule from one weak observation."
     )
 
+
+def work_packet(unit_id, run_id=None):
+    """Minimal handoff contract for a worker/model replacement; no full-plan reread required."""
+    r=STORE.run(run_id) if run_id else STORE.current()
+    if not r: raise ValueError("no active run")
+    unit=STORE.unit(r["run_id"],unit_id)
+    if not unit: raise ValueError(f"unknown work_unit: {unit_id}")
+    if unit.get("status") in ("DONE","SKIPPED"):
+        return {"run_id":r["run_id"],"unit_id":unit_id,"status":unit.get("status"),"immutable":True,
+                "instruction":"Already completed and checked in. Do not inspect, redo, or modify this work unless an explicit replan invalidates it."}
+    return {
+        "run_id":r["run_id"],"unit_id":unit_id,"task_id":unit.get("task_id"),
+        "input_contract":unit.get("description") or unit.get("title") or "",
+        "dependencies":unit.get("dependencies") or [],
+        "provider":unit.get("provider") or "","model":unit.get("model") or "",
+        "verification":unit.get("verification") or "",
+        "attempts":int(unit.get("attempts") or 0),
+        "instruction":"Execute only this work packet and its stated acceptance/verification contract. Do not reread or redesign the full plan. If the assigned model changes or hits a limit, the replacement model continues from this packet plus the latest checkpoint/output summary.",
+    }
 
 def update_work_unit(unit_id, status=None, verification="", output_summary="", files_touched=None, attempts=None, error="", steps_done=None, run_id=None):
     r=STORE.run(run_id) if run_id else STORE.current()
@@ -98,12 +117,24 @@ def update_work_unit(unit_id, status=None, verification="", output_summary="", f
     if error: changes["last_error"]=error
     if changes.get("status")=="RUNNING": changes["started_at"]=unit.get("started_at") or __import__("time").strftime("%Y-%m-%dT%H:%M:%S%z")
     if changes.get("status") in ("DONE","FAILED","SKIPPED"): changes["completed_at"]=__import__("time").strftime("%Y-%m-%dT%H:%M:%S%z")
+    old_status=(unit.get("status") or "").upper()
+    new_status=(changes.get("status") or old_status).upper()
+    if old_status in ("DONE","SKIPPED") and new_status != old_status:
+        raise ValueError(f"{unit_id} is checked in as {old_status} and immutable; explicit replan is required before reopening it")
+    if old_status in ("DONE","SKIPPED") and any(k in changes for k in ("provider","model","output_summary","files_touched","verification","last_error")):
+        raise ValueError(f"{unit_id} is checked in and immutable")
     STORE.update_unit(rid,unit_id,**changes)
     for sid in steps_done or []: STORE.update_step(rid,sid,"DONE")
     if changes.get("status") in ("DONE","SKIPPED"):
         for step in STORE.steps(rid,unit_id):
             if step.get("status")!="DONE": STORE.update_step(rid,step["step_id"],"DONE")
-    return {"run_id":rid,"unit":STORE.unit(rid,unit_id),"steps":STORE.steps(rid,unit_id)}
+        STORE.checkpoint(rid,"unit_checkin",{
+            "unit_id":unit_id,"status":changes.get("status"),
+            "verification":verification,"output_summary":output_summary,
+            "files_touched":files_touched or [],"model":unit.get("model"),"provider":unit.get("provider"),
+            "instruction":"Secretary check-in: Hermes must treat this unit as completed/immutable and exclude it from future worker context."
+        },unit_id)
+    return {"run_id":rid,"unit":STORE.unit(rid,unit_id),"steps":STORE.steps(rid,unit_id),"checked_in":changes.get("status") in ("DONE","SKIPPED")}
 
 def complete_run(success=True, summary="", run_id=None):
     r=STORE.run(run_id) if run_id else STORE.current()
