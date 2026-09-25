@@ -1,14 +1,15 @@
-# cmd-orchestrator v1.3.1
+# cmd-orchestrator v1.3.2
 
 `cmd-orchestrator` is a **control plane for Hermes**, not a second orchestrator.
 
-Hermes remains responsible for understanding the job, planning, dependencies, parallelism, worker/model selection, and execution. CMD makes those decisions visible, lets the human intervene, persists execution state, and turns reflection into editable learning.
+CMD owns orchestration policy, DAG/run state, role authority, routing policy, human intervention and run-to-completion. Hermes is reused as the execution director/runtime: model/tool invocation, context, shell/file/browser capabilities and worker dispatch. Strong PLANNER agents own architecture and algorithms.
 
 ## Core principle
 
 ```text
-Hermes = orchestrator
-CMD    = transparency + control + durable state + teachable learning
+CMD     = control/management plane + orchestration policy
+PLANNER = architecture + algorithms + contracts
+Hermes  = execution director / agent runtime
 ```
 
 The preferred representation is DSL-like and code-shaped so plans are easy to inspect and edit.
@@ -81,15 +82,16 @@ Plan deeply. Execute efficiently.
 
 CMD validates whether a Hermes plan is too coarse, but CMD does not invent the missing plan. It asks Hermes to expand it.
 
-## v1.3.1 role hierarchy
+## v1.3.2 role hierarchy
 
-CMD now separates **authority from the session's default model**. Hermes is the CEO/orchestrator; the default model acts as a SECRETARY for interaction and control-plane bookkeeping, not architecture decisions.
+CMD now separates **authority from the session's default model**. CMD is the control/management plane; Hermes is the execution director/runtime; the default model acts as a SECRETARY for interaction and control-plane bookkeeping, not architecture decisions.
 
 - **PLANNER / architect** — strong reasoning model; prefer Sol or DeepSeek V4 Pro when available. Owns architecture, algorithms, contracts, DAG and acceptance criteria.
 - **SCOUT / procurement** — fast research model; prefer Muse Spark 1.3 Contributor when available. Finds ready-made libraries/packages/tools and the exact API/usage needed. It must not research how to recreate components that can be reused.
 - **CODER / worker** — cheapest capable coding model. Receives a complete algorithm + contract from PLANNER and implements it without redesigning the system.
 - **VERIFIER** — independently checks acceptance criteria and may reject output; design changes are escalated to PLANNER.
-- **HERMES** — owns orchestration, concurrency, state and integration. Workers do not recursively orchestrate.
+- **CMD** — owns orchestration policy, DAG/run state, role authority, routing policy and run-to-completion.
+- **HERMES** — supplies the agent runtime, tools/context and dispatches CMD-approved work. Workers do not recursively orchestrate.
 
 This concentrates expensive intelligence in planning and scales execution with fast/cheap workers.
 
@@ -105,9 +107,13 @@ library discovery -> freeze interfaces -> atomic function work units -> READY DA
                                                    -> integration/regression
 ```
 
-Independent READY units should be assigned to separate workers concurrently up to `max_parallel` (default 3). Units with overlapping write scopes must not run concurrently. Workers do not recursively spawn/orchestrate other workers: Hermes remains the single parent orchestrator and performs final integration.
+Independent READY units should be assigned to separate workers concurrently up to `max_parallel` (default 3). Units with overlapping write scopes must not run concurrently. Workers do not recursively spawn/orchestrate other workers. CMD remains the control-plane authority; Hermes performs runtime dispatch and integration actions.
 
 Tiny getters/setters/generated wrappers may be grouped only when coordination cost would exceed the work itself. Custom code must have either a dependency on a `library_discovery` unit or explicit `library_evidence` showing why reuse is insufficient.
+
+## Run-to-completion
+
+After the human approves `/cmd-run`, CMD must not stop after W1/W2 merely because one worker returned. Completion of a work unit triggers immediate DAG recomputation and dispatch of the next READY frontier. The run pauses only for an explicit predeclared approval gate or a blocking failure that genuinely requires human input; otherwise it continues until all required units are verified and the run reaches `DONE`.
 
 ## Prompt review
 
@@ -265,7 +271,7 @@ When working inside a project, CMD also keeps a human-readable checkpoint at:
 
 ## Model ownership
 
-Hermes is the default routing authority in v1.2. CMD stores both the original Hermes route and any operator override at work-unit level.
+CMD is the routing-policy authority. Hermes exposes the available provider/model catalog and executes the selected route. CMD stores both its role-selected route and any operator override at work-unit level.
 
 `/cmd-model` and `/cmd-models` show the model catalog visible to the installed Hermes environment when the relevant Hermes APIs are available.
 
