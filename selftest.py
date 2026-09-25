@@ -17,9 +17,20 @@ from cmd_orchestrator.config import VERSION
 from cmd_orchestrator.storage import STORE
 from cmd_orchestrator.engine import begin_prompt_review,select_prompt,capture_hermes_plan,approve_run,update_work_unit,complete_run,work_packet
 from cmd_orchestrator.scheduler import ready_frontier
+from cmd_orchestrator.router import locked_role
 from cmd_orchestrator.dsl import render_plan
 
-assert VERSION=="1.4.0"
+assert VERSION=="1.5.0"
+assert locked_role("planner")["model"]=="gemini-3.8-flash"
+assert locked_role("secretary")["model"]=="muse-spark-1.3-contributor"
+assert locked_role("manager")["model"]=="deepseek-v4-flash-fast"
+try:
+    locked_role("incident_analyst")
+    raise AssertionError("incident analyst escaped confirmed-defect gate")
+except PermissionError:
+    pass
+assert "sol" in locked_role("incident_analyst",confirmed_user_defect=True)["models"]
+assert locked_role("patcher",confirmed_user_defect=True)["model"]=="terra"
 x=begin_prompt_review("write feature","GRILLED: write feature with tests",project="SELFTEST")
 rid=x["run_id"]
 assert STORE.prompt(rid)["status"]=="PENDING"
