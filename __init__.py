@@ -11,7 +11,7 @@ from .rescue import looks_limited, rescue
 
 log=logging.getLogger(__name__)
 
-ORCHESTRATED_GUIDANCE = """cmd-orchestrator v1.3.3 is the CONTROL/MANAGEMENT PLANE. Hermes is the EXECUTION DIRECTOR / AGENT RUNTIME, not the policy owner. The session default model is only the SECRETARY. Substantial planning/architecture/algorithm work must be delegated to a strong PLANNER (prefer Sol or DeepSeek V4 Pro when available).
+ORCHESTRATED_GUIDANCE = """cmd-orchestrator v1.4.0 is the CONTROL/MANAGEMENT PLANE. Hermes is the EXECUTION DIRECTOR / AGENT RUNTIME, not the policy owner. The session default model is only the SECRETARY. Substantial planning/architecture/algorithm work must be delegated to a strong PLANNER (prefer Sol or DeepSeek V4 Pro when available).
 
 For each new user request, Hermes first decides DIRECT vs ORCHESTRATED using its own judgment:
 - DIRECT: simple, low-risk, obvious tool action. Execute directly with the most reliable direct tool (shell/API; Computer Use only when GUI is actually needed). Skip Grill and plan review.
@@ -41,7 +41,7 @@ def register(ctx):
       ("cmd-models",c_models,"Alias: show all models visible to Hermes.",""),
       ("cmd-learn",c_learn,"Review/edit/teach learning for Hermes.","[add|edit|approve|activate|disable|reject|delete ...]"),
       ("cmd-learning",c_learning,"Alias of /cmd-learn.",""),
-      ("cmd-route",c_route,"Explain v1.3.3 routing ownership.","[task]"),
+      ("cmd-route",c_route,"Explain v1.4.0 routing ownership.","[task]"),
       ("cmd-mode",c_mode,"Compatibility cost/quality hint; Hermes still owns routing.","[cheap|balanced|quality|fast]"),
       ("cmd-auto",c_auto,"Set CMD intervention mode.","[off|review|on]"),
       ("cmd-clean",c_clean,"Preview/selectively clean CMD-generated artifacts or deep-clean CMD state.","[select IDs...|project|all] [--deep] [--learning]"),
@@ -50,7 +50,7 @@ def register(ctx):
       ("cmd-history",c_history,"Show recent runs.",""),
       ("cmd-rescue",c_rescue,"Checkpoint and call local fm rescue.","[reason]"),
       ("cmd-abort",c_abort,"Abort current run safely.","[reason]"),
-      ("cmd-help",c_help,"Show v1.3.3 control-plane commands.","")]
+      ("cmd-help",c_help,"Show v1.4.0 control-plane commands.","")]
     for n,h,d,ah in cmds:
         ctx.register_command(n,handler=h,description=d,args_hint=ah)
 
@@ -70,7 +70,7 @@ def register(ctx):
             if stage=="review":
                 return {"content":"CMD stage=review. If the user requests edits, apply them with cmd_plan_patch. If they approve/OK, call cmd_approve_run and execute its returned instruction."}
             if stage in ("execution","resume"):
-                return {"content":"CMD stage=execution. This approved run is RUN-TO-COMPLETION: never wait for another user message merely because a work unit finished. Re-read units before starting them. Execute the READY DAG frontier with separate workers concurrently up to max_parallel; do not serialize independent small work. Enforce library-first reuse, write-scope isolation, and no recursive worker orchestration. Honor human edits/route overrides only for not-yet-started units. After every completed unit immediately recompute cmd_ready_batch and continue dispatching until DONE, an explicit approval gate, or a blocking failure requiring human input."}
+                return {"content":"CMD stage=execution. This approved run is RUN-TO-COMPLETION: never wait for another user message merely because a work unit finished. Fetch cmd_work_packet for each READY unit before starting it; workers and replacement models must not reread the full plan. Execute the READY DAG frontier with separate workers concurrently up to max_parallel; do not serialize independent small work. Enforce library-first reuse, write-scope isolation, and no recursive worker orchestration. Honor human edits/route overrides only for not-yet-started units. After every completed unit immediately record a concise SECRETARY check-in via cmd_unit_update status=DONE, then recompute cmd_ready_batch and continue dispatching until DONE, an explicit approval gate, or a blocking failure requiring human input."}
             if stage in ("learning","learning_review"):
                 return {"content":"CMD stage=learning. Hermes should record concise evidence-based reflection through cmd_learning_capture; the human may edit/approve it with /cmd-learn."}
 
