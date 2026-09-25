@@ -1,14 +1,12 @@
 from __future__ import annotations
 import json
-from .engine import begin_prompt_review, select_prompt, capture_hermes_plan, patch_plan_item, approve_run, update_work_unit, complete_run, orchestrate
+from .engine import begin_planning, capture_hermes_plan, patch_plan_item, approve_run, update_work_unit, complete_run, orchestrate
 from .router import route
 from .storage import STORE
 from .config import hermes_model_catalog
 from .scheduler import ready_frontier
 
 SCHEMAS={
-"cmd_prompt_capture":{"name":"cmd_prompt_capture","description":"Capture the full original and Grill Me prompts for mandatory human review before substantial work.","parameters":{"type":"object","properties":{"original_prompt":{"type":"string"},"grilled_prompt":{"type":"string"},"project":{"type":"string"},"repository":{"type":"string"}},"required":["original_prompt","grilled_prompt"]}},
-"cmd_prompt_select":{"name":"cmd_prompt_select","description":"Record the human choice: original, grilled, or edited prompt.","parameters":{"type":"object","properties":{"selection":{"type":"string","enum":["original","grilled","edited"]},"edited_prompt":{"type":"string"},"run_id":{"type":"string"}},"required":["selection"]}},
 "cmd_capture_plan":{"name":"cmd_capture_plan","description":"Store a detailed plan created by the strong PLANNER through Hermes runtime. Use task -> work_unit -> step. CMD validates control-plane policy.","parameters":{"type":"object","properties":{"plan":{"type":"object"},"run_id":{"type":"string"}},"required":["plan"]}},
 "cmd_plan_patch":{"name":"cmd_plan_patch","description":"Apply a human-requested edit to a not-yet-started task/work_unit.","parameters":{"type":"object","properties":{"item_id":{"type":"string"},"changes":{"type":"object"},"run_id":{"type":"string"}},"required":["item_id","changes"]}},
 "cmd_approve_run":{"name":"cmd_approve_run","description":"Approve the reviewed CMD/PLANNER plan and start run-to-completion execution instructions for Hermes runtime.","parameters":{"type":"object","properties":{"run_id":{"type":"string"}}}},
@@ -26,8 +24,6 @@ SCHEMAS={
 
 def _j(x): return json.dumps(x,ensure_ascii=False,indent=2)
 
-def cmd_prompt_capture(p): return _j(begin_prompt_review(p["original_prompt"],p.get("grilled_prompt",""),p.get("project",""),p.get("repository","")))
-def cmd_prompt_select(p): return _j(select_prompt(p["selection"],p.get("edited_prompt",""),p.get("run_id") or None))
 def cmd_capture_plan(p): return _j(capture_hermes_plan(p["plan"],p.get("run_id") or None))
 def cmd_plan_patch(p): return _j(patch_plan_item(p["item_id"],p.get("changes") or {},p.get("run_id") or None))
 def cmd_approve_run(p): return _j(approve_run(p.get("run_id") or None))
