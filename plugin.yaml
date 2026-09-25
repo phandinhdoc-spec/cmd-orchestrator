@@ -1,5 +1,5 @@
 name: cmd-orchestrator
-version: 1.3.0
+version: 1.3.1
 description: "Hermes control plane with library-first atomic multi-agent execution: full Grill prompt review, detailed task/work_unit/step visibility, human edits and model overrides, durable execution state, teachable learning, and local rescue. Hermes remains the orchestrator."
 provides_tools:
   - cmd_prompt_capture
