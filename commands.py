@@ -12,7 +12,7 @@ from .cleanup import preview as clean_preview, format_preview as clean_format, c
 def fmt_status(include_plan=True):
     r=STORE.current()
     if not r:
-        return f"CMD CONTROL PLANE v{VERSION}\nNo saved run.\nHermes remains the orchestrator."
+        return f"CMD CONTROL PLANE v{VERSION}\nNo saved run.\nCMD owns orchestration policy; Hermes is the execution runtime."
     cp=STORE.latest_cp(r["run_id"])
     units=STORE.work_units(r["run_id"])
     total=len(units) or r.get("total_tasks",0) or 0
@@ -21,7 +21,7 @@ def fmt_status(include_plan=True):
     current=next((u for u in units if u["unit_id"]==r.get("current_task")),None) or {}
     out=[
         f"CMD CONTROL PLANE v{VERSION}",
-        "owner = Hermes",
+        "owner = CMD control plane; runtime = Hermes",
         f"run = {r['run_id']}",
         f"state = {r.get('status')}",
         f"stage = {r.get('current_stage') or '-'}",
@@ -49,10 +49,10 @@ def c_status(a):
 
 def c_mode(a):
     x=(a or "").strip(); st=load_settings()
-    if not x: return f"mode={st.get('mode')} (compatibility hint only; Hermes owns routing)"
+    if not x: return f"mode={st.get('mode')} (compatibility hint only; CMD role policy owns routing)"
     if x not in ("cheap","balanced","quality","fast"): return "Usage: /cmd-mode <cheap|balanced|quality|fast>"
     st["mode"]=x; save_settings(st)
-    return f"mode hint -> {x}; Hermes still owns default planning/routing"
+    return f"mode hint -> {x}; CMD role policy still owns planning/routing"
 
 
 def c_auto(a):
@@ -67,14 +67,14 @@ def make_plan(ctx):
         req=(a or "").strip()
         if not req: return "Usage: /cmd-plan <công việc>"
         instruction=(
-            "Manual /cmd-plan requested. Hermes owns planning. First run Grill Me/grill-tab for the user's request if available, "
+            "Manual /cmd-plan requested. CMD owns orchestration policy and delegates architecture/algorithm planning to a strong PLANNER through Hermes. First run Grill Me/grill-tab for the user's request if available, "
             f"then call cmd_prompt_capture with original_prompt={req!r} and the FULL grilled prompt. Show both full prompts and wait for selection. "
             "After selection, create a detailed task -> work_unit -> step plan; choose provider/model per independently routable work_unit; "
             "call cmd_capture_plan. If CMD reports coarse units, expand them. Then show /cmd-review and wait for approval."
         )
         try:
             ctx.inject_message(instruction,role="user")
-            return "Manual Hermes planning requested. Hermes will run Grill Me, capture both full prompts, then present prompt review before planning."
+            return "Manual CMD planning requested. Hermes runtime will run Grill Me; CMD will capture both prompts, then delegate the selected prompt to the strong PLANNER."
         except Exception as e:
             return f"Could not inject Hermes instruction: {e}\nTell Hermes:\n{instruction}"
     return c_plan
