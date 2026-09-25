@@ -2,7 +2,7 @@ from __future__ import annotations
 import json, shlex
 from .config import VERSION, load_settings, save_settings, hermes_model_catalog
 from .dsl import render_prompt_review, render_plan, render_learning
-from .engine import begin_prompt_review, select_prompt, patch_plan_item, approve_run
+from .engine import begin_planning, begin_prompt_review, select_prompt, patch_plan_item, approve_run
 from .planner import hermes_plan_contract
 from .storage import STORE, EDITABLE
 from .rescue import rescue
@@ -66,17 +66,20 @@ def make_plan(ctx):
     def c_plan(a):
         req=(a or "").strip()
         if not req: return "Usage: /cmd-plan <công việc>"
+        begin_planning(req)
         instruction=(
-            "Manual /cmd-plan requested. CMD owns orchestration policy and delegates architecture/algorithm planning to a strong PLANNER through Hermes. First run Grill Me/grill-tab for the user's request if available, "
-            f"then call cmd_prompt_capture with original_prompt={req!r} and the FULL grilled prompt. Show both full prompts and wait for selection. "
-            "After selection, create a detailed task -> work_unit -> step plan; choose provider/model per independently routable work_unit; "
-            "call cmd_capture_plan. If CMD reports coarse units, expand them. Then show /cmd-review and wait for approval."
+            f"Start CMD layered planning for this authoritative original request: {req!r}. Do not use Grill. "
+            "Strong PLANNER creates L1 mission, then L2 architecture/process/rules/library candidates. "
+            "Dispatch SCOUT immediately when candidates appear while PLANNER continues independent work. "
+            "At the planning barrier consume SCOUT capability_report, then produce L3 task/work_unit/step plan "
+            "with WHAT/WHO/WHEN/HOW/PASS and algorithms/contracts for difficult custom functions. "
+            "Call cmd_capture_plan, expand until valid, then show /cmd-review."
         )
         try:
             ctx.inject_message(instruction,role="user")
-            return "Manual CMD planning requested. Hermes runtime will run Grill Me; CMD will capture both prompts, then delegate the selected prompt to the strong PLANNER."
+            return "Layered CMD planning started from the original prompt; no Grill/prompt rewrite step."
         except Exception as e:
-            return f"Could not inject Hermes instruction: {e}\nTell Hermes:\n{instruction}"
+            return f"Could not inject planning instruction: {e}\nTell Hermes:\n{instruction}"
     return c_plan
 
 
