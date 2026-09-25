@@ -152,8 +152,8 @@ def complete_run(success=True, summary="", run_id=None):
 # Backward-compatible names. They now prepare control state; they do NOT independently plan/route.
 def create_plan(request,project="",repository="",session_id=""):
     result=begin_prompt_review(request,"",project,repository,session_id)
-    return result["run_id"], {"owner":"hermes","status":"awaiting_grill_or_prompt_selection","contract":hermes_plan_contract()}
+    return result["run_id"], {"owner":"cmd_control_plane","runtime":"hermes","status":"awaiting_grill_or_prompt_selection","contract":hermes_plan_contract()}
 
 def orchestrate(request,project="",repository="",mode=None,session_id=""):
     result=begin_prompt_review(request,"",project,repository,session_id)
-    return {**result,"owner":"hermes","contract":hermes_plan_contract(),"note":"CMD v1.3.3 owns the control/management plane; Hermes is the agent runtime, strong planner designs, scouts procure reusable components, coders execute contracts."}
+    return {**result,"owner":"cmd_control_plane","runtime":"hermes","contract":hermes_plan_contract(),"note":"CMD v1.5.0 owns the control/management plane; Hermes is the agent runtime, strong planner designs, scouts procure reusable components, coders execute contracts."}
