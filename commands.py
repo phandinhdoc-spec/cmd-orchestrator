@@ -101,7 +101,7 @@ def c_review(a):
     r=STORE.current()
     if not r: return "No saved run."
     text=render_plan(STORE.plan_tree(r["run_id"]),r)
-    return text + "\n\nEdit pending work: /cmd-edit <ID> field=value ...\nChange route: /cmd-model <WORK_UNIT> <provider> <model>\nRestore Hermes route: /cmd-model <WORK_UNIT> auto\nApprove: /cmd-run"
+    return text + "\n\nEdit pending work: /cmd-edit <ID> field=value ...\nHuman-only worker route override: /cmd-model <WORK_UNIT> <provider> <model> (locked roles cannot be changed)\nRestore Hermes route: /cmd-model <WORK_UNIT> auto\nApprove: /cmd-run"
 
 
 def _parse_edits(raw):
@@ -148,25 +148,41 @@ def make_run(ctx):
 
 
 def c_model(a):
+    """Human-only worker-route override. Locked system roles can never be changed here."""
     raw=(a or "").strip()
-    if not raw: return json.dumps(hermes_model_catalog(),ensure_ascii=False,indent=2)
+    if not raw:
+        catalog=hermes_model_catalog()
+        catalog["override_policy"]={
+            "human_only":True,
+            "scope":"pending worker work_units only",
+            "locked_roles":["planner","secretary","manager","incident_analyst","patcher"],
+            "note":"Agents/tools cannot use /cmd-model to bypass v1.5 locked role policy."
+        }
+        return json.dumps(catalog,ensure_ascii=False,indent=2)
     parts=raw.split()
     if len(parts)<2: return "Usage: /cmd-model <WORK_UNIT> auto | /cmd-model <WORK_UNIT> <provider> <model>"
     r=STORE.current()
     if not r: return "No saved run."
     uid=parts[0]
     unit=STORE.unit(r["run_id"],uid)
-    if not unit: return f"Unknown work_unit: {uid}. v1.2 routes at work_unit level."
+    if not unit: return f"Unknown work_unit: {uid}."
     if unit.get("status") not in EDITABLE:
-        return f"Cannot change {uid}: status={unit.get('status')}. Only not-yet-started work_units are editable."
+        return f"Cannot change {uid}: status={unit.get('status')}. Only not-yet-started worker work_units are editable."
+    role=str(unit.get("executor") or "").strip().lower()
+    locked={"planner","secretary","manager","incident_analyst","patcher"}
+    if role in locked:
+        return f"Override rejected: {uid} is role={role}, which is hard-locked by CMD v1.5 policy."
     if parts[1].lower()=="auto":
         STORE.reset_unit_to_hermes(r["run_id"],uid)
     else:
         if len(parts)<3: return "Usage: /cmd-model <WORK_UNIT> <provider> <model>"
         provider=parts[1]; model=" ".join(parts[2:])
-        STORE.update_unit(r["run_id"],uid,provider=provider,model=model,reasoning="operator override",route_source="operator")
+        forbidden={"gemini-3.8-flash","muse-spark-1.3-contributor","deepseek-v4-flash-fast","sol","mimo-v4-pro","terra"}
+        if model.strip().lower() in forbidden:
+            return "Override rejected: this model is reserved by a hard-locked system role. /cmd-model may override ordinary worker routes only."
+        STORE.update_unit(r["run_id"],uid,provider=provider,model=model,reasoning="explicit human worker override",route_source="operator")
+        STORE.checkpoint(r["run_id"],"human_worker_route_override",{"unit_id":uid,"provider":provider,"model":model},uid)
     return c_review("")
-
 
 def c_models(a): return c_model("")
 
@@ -280,7 +296,7 @@ COMMANDS
 /cmd-edit <ID> field=value ...            edit pending task/work_unit metadata
 /cmd-run                                  approve reviewed plan
 /cmd-model                                Hermes-visible model catalog
-/cmd-model <W#.#> <provider> <model>      operator route override
+/cmd-model <W#.#> <provider> <model>      HUMAN-ONLY ordinary-worker override; locked role models forbidden
 /cmd-model <W#.#> auto                    restore Hermes' original route
 /cmd-models                               alias of /cmd-model
 /cmd-learn                                show what Hermes/CMD/user taught the system
