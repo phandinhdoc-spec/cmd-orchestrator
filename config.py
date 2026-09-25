@@ -2,7 +2,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-VERSION = "1.3.0"
+VERSION = "1.3.1"
 PLUGIN_ID = "cmd-orchestrator"
 
 STATE_ROOT = Path.home() / ".hermes" / "state" / PLUGIN_ID
@@ -18,6 +18,12 @@ DEFAULT_SETTINGS = {
     "auto": "review",
     "mode": "balanced",  # compatibility only; Hermes owns routing in v1.2
     "routing_owner": "hermes",
+    "role_routing": True,
+    "planner_requires_strong_reasoning": True,
+    "planner_preferred_models": ["sol", "deepseek-v4-pro"],
+    "scout_preferred_models": ["muse-spark-1.3-contributor"],
+    "coder_policy": "cheapest_capable_after_algorithm_contract",
+    "secretary_policy": "interaction_only_no_architecture_authority",
     "simple_path": "hermes_direct",
     "grill_for_substantial": True,
     "require_prompt_review": True,
