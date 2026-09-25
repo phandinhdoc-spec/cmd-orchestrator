@@ -155,7 +155,8 @@ def c_model(a):
         catalog["override_policy"]={
             "human_only":True,
             "scope":"pending worker work_units only",
-            "locked_roles":["planner","secretary","manager","incident_analyst","patcher"],
+            "locked_roles":["planner","secretary","manager","incident_analyst"],
+            "patcher_policy":"confirmed-defect-only; select a Terra-class model, not necessarily Terra",
             "note":"Agents/tools cannot use /cmd-model to bypass v1.5 locked role policy."
         }
         return json.dumps(catalog,ensure_ascii=False,indent=2)
@@ -169,7 +170,7 @@ def c_model(a):
     if unit.get("status") not in EDITABLE:
         return f"Cannot change {uid}: status={unit.get('status')}. Only not-yet-started worker work_units are editable."
     role=str(unit.get("executor") or "").strip().lower()
-    locked={"planner","secretary","manager","incident_analyst","patcher"}
+    locked={"planner","secretary","manager","incident_analyst"}
     if role in locked:
         return f"Override rejected: {uid} is role={role}, which is hard-locked by CMD v1.5 policy."
     if parts[1].lower()=="auto":
@@ -177,7 +178,7 @@ def c_model(a):
     else:
         if len(parts)<3: return "Usage: /cmd-model <WORK_UNIT> <provider> <model>"
         provider=parts[1]; model=" ".join(parts[2:])
-        forbidden={"gemini-3.8-flash","muse-spark-1.3-contributor","deepseek-v4-flash-fast","sol","mimo-v4-pro","terra"}
+        forbidden={"gemini-3.8-flash","muse-spark-1.3-contributor","deepseek-v4-flash-fast","sol","mimo-v4-pro"}
         if model.strip().lower() in forbidden:
             return "Override rejected: this model is reserved by a hard-locked system role. /cmd-model may override ordinary worker routes only."
         STORE.update_unit(r["run_id"],uid,provider=provider,model=model,reasoning="explicit human worker override",route_source="operator")
