@@ -2,7 +2,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-VERSION = "1.2.1"
+VERSION = "1.3.2"
 PLUGIN_ID = "cmd-orchestrator"
 
 STATE_ROOT = Path.home() / ".hermes" / "state" / PLUGIN_ID
@@ -17,13 +17,23 @@ DEFAULT_SETTINGS = {
     "version": VERSION,
     "auto": "review",
     "mode": "balanced",  # compatibility only; Hermes owns routing in v1.2
-    "routing_owner": "hermes",
+    "routing_owner": "cmd_control_plane",
+    "role_routing": True,
+    "planner_requires_strong_reasoning": True,
+    "planner_preferred_models": ["sol", "deepseek-v4-pro"],
+    "scout_preferred_models": ["muse-spark-1.3-contributor"],
+    "coder_policy": "cheapest_capable_after_algorithm_contract",
+    "secretary_policy": "interaction_only_no_architecture_authority",
     "simple_path": "hermes_direct",
     "grill_for_substantial": True,
     "require_prompt_review": True,
     "require_plan_review": True,
     "plan_resolution": "task/work_unit/step",
     "max_parallel": 3,
+    "atomic_code_unit": "function_or_method",
+    "library_first": True,
+    "forbid_library_reimplementation": True,
+    "parallel_independent_units": True,
     "checkpoint_every_tool": True,
     "fm_rescue": True,
     "learning_review": True,
@@ -55,14 +65,14 @@ def load_settings():
     if isinstance(data, dict):
         merged.update(data)
     merged["version"] = VERSION
-    merged["routing_owner"] = "hermes"
+    merged["routing_owner"] = "cmd_control_plane"
     return merged
 
 def save_settings(data):
     ensure_dirs()
     data = dict(data)
     data["version"] = VERSION
-    data["routing_owner"] = "hermes"
+    data["routing_owner"] = "cmd_control_plane"
     tmp = SETTINGS_JSON.with_suffix(".tmp")
     tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
     tmp.replace(SETTINGS_JSON)
@@ -124,6 +134,6 @@ def hermes_model_catalog():
     return {
         "current": {"provider": current_provider, "model": current_model},
         "providers": rows,
-        "owner": "Hermes",
-        "note": "CMD only exposes/overrides Hermes-visible routes; Hermes remains the default routing authority.",
+        "owner": "CMD control plane",
+        "note": "CMD owns orchestration policy and role routing; Hermes supplies the agent runtime and executes CMD-dispatched work.",
     }

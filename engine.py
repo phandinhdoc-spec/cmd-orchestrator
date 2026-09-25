@@ -16,7 +16,7 @@ def select_prompt(selection, edited_prompt="", run_id=None):
     if not r:
         raise ValueError("no active run")
     selected=STORE.select_prompt(r["run_id"],selection,edited_prompt)
-    return {"run_id":r["run_id"],"selected_prompt":selected,"next":"Hermes plans using the selected prompt","contract":hermes_plan_contract()}
+    return {"run_id":r["run_id"],"selected_prompt":selected,"next":"CMD delegates architecture/algorithm planning to a strong PLANNER through the Hermes runtime","contract":hermes_plan_contract()}
 
 
 def capture_hermes_plan(plan, run_id=None):
@@ -70,8 +70,8 @@ def approve_run(run_id=None):
 
 def execution_instruction(rid):
     return (
-        f"Execute cmd-orchestrator run {rid}. Hermes remains the orchestrator. Re-read the saved work_unit immediately before "
-        "starting it because the operator may edit any READY/PENDING unit or route. Execute dependencies first. Treat steps as "
+        f"Execute cmd-orchestrator run {rid}. CMD is the control/management plane and owns orchestration policy/state; Hermes is the execution director/runtime. After human approval, this run is RUN-TO-COMPLETION: do not wait for another user message between approved work units. Recompute the READY frontier immediately whenever a unit finishes and continue until DONE, a declared approval gate, or a blocking failure that requires human input. Re-read the saved work_unit immediately before "
+        "starting it because the operator may edit any READY/PENDING unit or route. Execute dependencies first. Role hierarchy is mandatory: the session/default model is SECRETARY only; architecture, algorithm and DAG decisions belong to a strong PLANNER (prefer Sol or DeepSeek V4 Pro when available). SCOUT workers search for ready-made libraries/packages/tools and their usage/API, not tutorials for recreating internals (prefer Muse Spark 1.3 Contributor when available). Before custom code, enforce library-first reuse. CODER workers receive the planner algorithm/contract and use the cheapest capable model; they must escalate instead of redesigning it. VERIFIER may reject but escalates design changes to PLANNER. For code, treat each independently changeable function/method work_unit as atomic. Call cmd_ready_batch to obtain the dependency-ready, write-scope-safe frontier, then dispatch each returned READY unit to a separate worker concurrently up to settings.max_parallel. Workers must not recursively orchestrate; CMD owns orchestration policy and Hermes performs runtime dispatch. Treat steps as "
         "an internal checklist, not separate agent calls unless Hermes decides that is necessary. Use the provider/model stored on "
         "each work_unit; route_source=operator overrides Hermes' original route. Verify each unit before DONE and checkpoint material "
         "progress. Do not redo DONE units. At the end call cmd_complete_run, then perform a concise Hermes reflection and call "
@@ -121,4 +121,4 @@ def create_plan(request,project="",repository="",session_id=""):
 
 def orchestrate(request,project="",repository="",mode=None,session_id=""):
     result=begin_prompt_review(request,"",project,repository,session_id)
-    return {**result,"owner":"hermes","contract":hermes_plan_contract(),"note":"CMD v1.2 is a control plane; Hermes must produce the plan."}
+    return {**result,"owner":"hermes","contract":hermes_plan_contract(),"note":"CMD v1.3.2 owns the control/management plane; Hermes is the agent runtime, strong planner designs, scouts procure reusable components, coders execute contracts."}

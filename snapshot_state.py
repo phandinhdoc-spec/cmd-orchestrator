@@ -16,7 +16,7 @@ class SnapshotMixin:
                 done=', '.join(u['unit_id'] for u in units if u['status']=='DONE') or '-'
                 active=', '.join(u['unit_id'] for u in units if u['status'] not in TERMINAL) or '-'
                 text=(f"# cmd-orchestrator v{VERSION} checkpoint\n\n- RUN ID: {rid}\n- STATUS: {r.get('status')}\n"
-                      f"- OWNER: Hermes (CMD control plane)\n- STAGE: {r.get('current_stage') or '-'}\n"
+                      f"- OWNER: CMD control plane; RUNTIME: Hermes\n- STAGE: {r.get('current_stage') or '-'}\n"
                       f"- CURRENT: {r.get('current_task') or '-'}\n- PROGRESS: {r.get('completed_tasks',0)}/{r.get('total_tasks',0)}\n"
                       f"- DONE UNITS: {done}\n- ACTIVE/PENDING: {active}\n")
                 (ai/"task_on_progress.md").write_text(text,encoding="utf-8")
