@@ -1,8 +1,8 @@
 from __future__ import annotations
 import json, shlex
 from .config import VERSION, load_settings, save_settings, hermes_model_catalog
-from .dsl import render_prompt_review, render_plan, render_learning
-from .engine import begin_prompt_review, select_prompt, patch_plan_item, approve_run
+from .dsl import render_plan, render_learning
+from .engine import begin_planning, patch_plan_item, approve_run
 from .planner import hermes_plan_contract
 from .storage import STORE, EDITABLE
 from .rescue import rescue
@@ -32,9 +32,7 @@ def fmt_status(include_plan=True):
         f"route_source = {current.get('route_source') or '-'}",
         f"checkpoint = {(cp or {}).get('event',r.get('last_checkpoint_reason')) or '-'}",
     ]
-    if r.get("current_stage")=="prompt_review":
-        out += ["",render_prompt_review(STORE.prompt(r["run_id"]))]
-    elif include_plan:
+    if include_plan:
         out += ["",render_plan(STORE.plan_tree(r["run_id"]),r)]
     return "\n".join(out)
 
@@ -66,35 +64,21 @@ def make_plan(ctx):
     def c_plan(a):
         req=(a or "").strip()
         if not req: return "Usage: /cmd-plan <công việc>"
+        begin_planning(req)
         instruction=(
-            "Manual /cmd-plan requested. CMD owns orchestration policy and delegates architecture/algorithm planning to a strong PLANNER through Hermes. First run Grill Me/grill-tab for the user's request if available, "
-            f"then call cmd_prompt_capture with original_prompt={req!r} and the FULL grilled prompt. Show both full prompts and wait for selection. "
-            "After selection, create a detailed task -> work_unit -> step plan; choose provider/model per independently routable work_unit; "
-            "call cmd_capture_plan. If CMD reports coarse units, expand them. Then show /cmd-review and wait for approval."
+            f"Start CMD layered planning for this authoritative original request: {req!r}. Do not use Grill. "
+            "Strong PLANNER creates L1 mission, then L2 architecture/process/rules/library candidates. "
+            "Dispatch SCOUT immediately when candidates appear while PLANNER continues independent work. "
+            "At the planning barrier consume SCOUT capability_report, then produce L3 task/work_unit/step plan "
+            "with WHAT/WHO/WHEN/HOW/PASS and algorithms/contracts for difficult custom functions. "
+            "Call cmd_capture_plan, expand until valid, then show /cmd-review."
         )
         try:
             ctx.inject_message(instruction,role="user")
-            return "Manual CMD planning requested. Hermes runtime will run Grill Me; CMD will capture both prompts, then delegate the selected prompt to the strong PLANNER."
+            return "Layered CMD planning started from the original prompt; no Grill/prompt rewrite step."
         except Exception as e:
-            return f"Could not inject Hermes instruction: {e}\nTell Hermes:\n{instruction}"
+            return f"Could not inject planning instruction: {e}\nTell Hermes:\n{instruction}"
     return c_plan
-
-
-def c_prompt(a):
-    r=STORE.current()
-    if not r: return "No active run."
-    raw=(a or "").strip()
-    if not raw:
-        return render_prompt_review(STORE.prompt(r["run_id"])) + "\n\nUse: /cmd-prompt original | grilled | edit <full prompt>"
-    if raw.lower()=="original":
-        select_prompt("original",run_id=r["run_id"])
-    elif raw.lower()=="grilled":
-        select_prompt("grilled",run_id=r["run_id"])
-    elif raw.lower().startswith("edit "):
-        select_prompt("edited",raw[5:].strip(),r["run_id"])
-    else:
-        return "Usage: /cmd-prompt original | grilled | edit <full prompt>"
-    return render_prompt_review(STORE.prompt(r["run_id"])) + "\n\nPrompt selected. Hermes should now create the detailed plan."
 
 
 def c_review(a):
@@ -156,7 +140,7 @@ def c_model(a):
     if not r: return "No saved run."
     uid=parts[0]
     unit=STORE.unit(r["run_id"],uid)
-    if not unit: return f"Unknown work_unit: {uid}. v1.2 routes at work_unit level."
+    if not unit: return f"Unknown work_unit: {uid}. CMD routes at work_unit level."
     if unit.get("status") not in EDITABLE:
         return f"Cannot change {uid}: status={unit.get('status')}. Only not-yet-started work_units are editable."
     if parts[1].lower()=="auto":
@@ -171,7 +155,7 @@ def c_model(a):
 def c_models(a): return c_model("")
 
 def c_route(a):
-    return "CMD v1.2 does not independently choose the default route. Hermes chooses provider/model per work_unit; use /cmd-model only to inspect/override."
+    return "CMD v1.4 routes by role policy using the Hermes-visible model catalog; use /cmd-model to inspect/override a pending work_unit."
 
 
 def c_checkpoint(a):
@@ -268,7 +252,7 @@ def c_help(a):
 
 DEFAULT FLOW
 user prompt -> Hermes decides DIRECT vs ORCHESTRATED
-ORCHESTRATED -> Grill Me -> full prompt review -> Hermes detailed plan -> task review -> run -> learning review
+ORCHESTRATED -> L1 mission -> L2 design + concurrent SCOUT -> planning barrier -> L3 work plan -> review -> run-to-completion -> learning review
 
 COMMANDS
 /cmd-status [--json]                    full control state in DSL-like form
@@ -297,7 +281,7 @@ COMMANDS
 /cmd-rescue [reason]
 /cmd-abort [reason]
 /cmd-auto [off|review|on]
-/cmd-mode [cheap|balanced|quality|fast]    compatibility hint only; Hermes owns routing
+/cmd-mode [cheap|balanced|quality|fast]    compatibility cost/quality hint; CMD owns role routing
 /cmd-help
 
 PLAN CONTRACT

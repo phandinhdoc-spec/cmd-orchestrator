@@ -1,6 +1,6 @@
 name: cmd-orchestrator
-version: 1.3.2
-description: "CMD control/management plane over the Hermes agent runtime with library-first atomic multi-agent execution: full Grill prompt review, detailed task/work_unit/step visibility, human edits and model overrides, durable execution state, teachable learning, and local rescue. CMD owns orchestration policy; Hermes supplies execution runtime."
+version: 1.4.0
+description: "CMD control/management plane over the Hermes agent runtime with library-first atomic multi-agent execution: full three-layer pipelined planning
 provides_tools:
   - cmd_prompt_capture
   - cmd_prompt_select

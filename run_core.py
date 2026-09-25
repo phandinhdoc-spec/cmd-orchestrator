@@ -20,14 +20,14 @@ class RunCoreMixin:
         rid=f"run_{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"; t=now()
         with LOCK,con() as c:c.execute("""INSERT INTO runs(run_id,project,repository,request,status,mode,auto_mode,current_stage,process_id,session_id,created_at,updated_at)
           VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",(rid,safe(project,256),safe(repository,1024),safe(request),"PROMPT_REVIEW",mode,auto_mode,"prompt_review",os.getpid(),safe(session_id,256),t,t))
-        self.checkpoint(rid,"run_created",{"version":VERSION,"owner":"hermes"}); return rid
+        self.checkpoint(rid,"run_created",{"version":VERSION,"owner":"cmd_control_plane","runtime":"hermes"}); return rid
     def set_prompt(self,rid,original,grilled=""):
         t=now()
         with LOCK,con() as c:
             c.execute("""INSERT INTO prompts(run_id,original_prompt,grilled_prompt,selected_prompt,selection,status,updated_at) VALUES(?,?,?,?,?,?,?)
               ON CONFLICT(run_id) DO UPDATE SET original_prompt=excluded.original_prompt,grilled_prompt=excluded.grilled_prompt,status='PENDING',updated_at=excluded.updated_at""",
               (rid,safe(original),safe(grilled),"","","PENDING",t))
-            c.execute("UPDATE runs SET request=?,status='PROMPT_REVIEW',current_stage='prompt_review',review_state='PENDING',updated_at=? WHERE run_id=?",(safe(original),t,rid))
+            c.execute("UPDATE runs SET request=?,status='PLANNING',current_stage='planning_l1',review_state='PENDING',updated_at=? WHERE run_id=?",(safe(original),t,rid))
         self.checkpoint(rid,"prompt_captured",{"has_grilled":bool(grilled)})
     def prompt(self,rid):
         with con() as c:r=c.execute("SELECT * FROM prompts WHERE run_id=?",(rid,)).fetchone(); return dict(r) if r else None

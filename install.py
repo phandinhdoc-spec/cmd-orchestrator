@@ -28,7 +28,7 @@ def main():
         print("[backup state ]",b)
 
     # Backup stays outside ~/.hermes/plugins so Hermes will not discover duplicate manifests.
-    # copytree intentionally copies every runtime *.py module introduced by v1.2.
+    # copytree intentionally copies every runtime *.py module required by the current plugin version.
     DST.parent.mkdir(parents=True,exist_ok=True)
     shutil.copytree(src,DST,ignore=shutil.ignore_patterns("__pycache__","*.pyc","install.py","selftest.py","README.md",".git"))
     print("[installed]",DST)
