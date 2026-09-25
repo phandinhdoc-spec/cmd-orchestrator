@@ -8,49 +8,47 @@ CODE_CLASSES = {"code", "implementation", "coding", "refactor", "algorithm", "te
 DISCOVERY_CLASSES = {"library_discovery", "dependency_discovery", "reuse_discovery"}
 
 def hermes_plan_contract():
-    """Hard planning contract. CMD owns orchestration policy; Hermes is the execution runtime."""
+    """Three-layer planning contract with overlapped SCOUT procurement."""
     return {
         "owner": "cmd_control_plane",
+        "pipeline": [
+            "L1 mission: objective, scope, deliverables, constraints",
+            "L2 execution_design: architecture, process, rules, candidate reusable libraries/tools",
+            "SCOUT starts as soon as L2 candidates exist and runs concurrently while PLANNER continues independent planning",
+            "planning_barrier: consume SCOUT capability_report before freezing library-dependent L3 details",
+            "L3 work_plan: modules/functions, reuse mapping, algorithms for difficult functions, DAG, worker/model, acceptance criteria",
+            "human review starts only after L3 is complete",
+        ],
         "hierarchy": {"control_plane":"cmd","runtime":"hermes","default_model":"secretary","planner":"strong_reasoning","scout":"fast_research","coder":"execution","verifier":"independent_check"},
         "resolution": "task/work_unit/step",
         "hard_rules": [
-            "LIBRARY-FIRST: before custom implementation, search project dependencies, standard library/framework APIs, official packages, then suitable maintained third-party libraries.",
-            "REIMPLEMENT_EXISTING_LIBRARY is forbidden. SCOUT searches for ready-made components/packages/tools first; searching how to recreate their internals is not acceptable discovery.",
-            "PLANNER is a privileged strong-reasoning role (prefer Sol / DeepSeek V4 Pro when available). The session default model is SECRETARY and has no architecture authority.",
-            "SCOUT is a fast research/procurement role (prefer Muse Spark 1.3 Contributor when available) that returns reusable components plus usage/API facts, not implementation tutorials.",
-            "CODER receives a complete algorithm/contract from PLANNER and should use the cheapest capable coding model; CODER must not redesign architecture or algorithm.",
-            "VERIFIER may reject work but must escalate design changes to PLANNER.",
-            "For code, one independently changeable function/method is one atomic work_unit by default.",
-            "Tiny getters/setters/generated wrappers may be grouped only when agent startup/coordination would cost more than the work.",
-            "Every custom implementation unit must depend on a library_discovery unit or carry explicit library_evidence explaining why no suitable reusable implementation exists.",
-            "Independent READY work_units should be dispatched to separate workers concurrently up to max_parallel; do not serialize independent small units.",
-            "Workers may not recursively orchestrate. CMD owns the orchestration policy/state; Hermes is the single execution runtime that dispatches CMD-approved work.",
-            "Freeze shared interfaces/signatures before parallel dependent implementation; finish with integration/regression verification.",
-        ],
-        "rules": [
-            "CMD owns orchestration policy, DAG state, role authority and run-to-completion. Strong PLANNER owns architecture/algorithm design. Hermes executes the resulting work packets and integration actions.",
-            "Make the plan detailed enough to expose mixed difficulty and parallelism.",
-            "A work_unit is the smallest independently routable/executable unit.",
-            "Steps are an internal checklist, not routing boundaries.",
-            "Put provider/model/reasoning on every work_unit.",
-            "Use dependencies to form a DAG; avoid overlapping write scopes among concurrent workers.",
+            "The original user prompt is authoritative. Do not Grill/rewrite it before planning.",
+            "PLANNER owns L1-L3 planning; SECRETARY only receives the request and maintains interaction/state.",
+            "At L2 identify likely reusable components early. Dispatch SCOUT immediately; do not block PLANNER on work independent of the scout result.",
+            "SCOUT returns a capability_report: selected/rejected libraries/tools, version/source, API/usage, integration notes, compatibility and evidence.",
+            "Before freezing L3 library-dependent work, cross the planning_barrier and incorporate the capability_report.",
+            "REIMPLEMENT_EXISTING_LIBRARY is forbidden when a suitable reusable component exists.",
+            "Every L3 work_unit must state WHAT, WHO, WHEN/dependencies, HOW, and PASS/acceptance criteria.",
+            "For difficult custom functions PLANNER supplies algorithm, inputs/outputs, edge cases and acceptance criteria so a cheaper CODER can execute without redesign.",
+            "Use the smallest independently delegable work unit whose coordination overhead is worthwhile; group tiny tightly-coupled helpers.",
+            "CODER must not redesign architecture/algorithm; unresolved contract problems escalate to PLANNER.",
+            "VERIFIER may reject work but design changes escalate to PLANNER.",
+            "Independent READY units run concurrently up to max_parallel with non-overlapping write scopes.",
+            "Workers may not recursively orchestrate.",
         ],
         "shape": {
             "summary": "string",
-            "tasks": [{
-                "id": "T1", "title": "string", "description": "string", "dependencies": [],
-                "work_units": [{
-                    "id": "W1.1", "title": "string", "description": "string",
-                    "dependencies": [], "task_class": "library_discovery|implementation|test|integration|...",
-                    "symbol": "function/method/module being changed",
-                    "files": ["write-scope paths"],
-                    "library_evidence": "packages/APIs checked, selected reusable library, or evidence custom code is necessary",
-                    "risk": "low|medium|high", "role": "planner|scout|coder|verifier|integrator", "provider": "CMD role-routed provider",
-                    "model": "CMD role-routed model", "reasoning": "route rationale",
-                    "verification": "acceptance evidence",
-                    "steps": [{"id": "S1.1.1", "title": "string", "description": "string"}],
-                }],
-            }],
+            "layers": {
+                "L1": {"objective":"string","scope":"string","deliverables":[],"constraints":[]},
+                "L2": {"architecture":"string","process":[],"rules":[],"library_candidates":[],"scout_status":"DISPATCHED|DONE","capability_report":"object"},
+                "L3": "tasks/work_units/steps"
+            },
+            "tasks": [{"id":"T1","title":"string","description":"WHAT","dependencies":[],
+                "work_units":[{"id":"W1.1","title":"string","description":"WHAT","dependencies":[],"task_class":"...",
+                    "role":"planner|scout|coder|verifier|integrator","symbol":"function/method/module","files":[],
+                    "library_evidence":"reused component or reason custom code is necessary",
+                    "provider":"CMD role-routed provider","model":"CMD role-routed model","reasoning":"WHO/why",
+                    "execution":"HOW","verification":"PASS criteria","steps":[]}]}]
         },
     }
 
@@ -60,8 +58,14 @@ def _is_code(unit):
 
 def normalize_plan(plan):
     plan = plan if isinstance(plan, dict) else {}
-    out = {"summary": str(plan.get("summary") or ""), "tasks": []}
+    out = {"summary": str(plan.get("summary") or ""), "layers": plan.get("layers") if isinstance(plan.get("layers"),dict) else {}, "tasks": []}
     issues = []
+    layers=out["layers"]
+    for key in ("L1","L2","L3"):
+        if key not in layers: issues.append(f"planning layer {key} missing")
+    l2=layers.get("L2") if isinstance(layers.get("L2"),dict) else {}
+    if l2.get("library_candidates") and not l2.get("capability_report"):
+        issues.append("planning_barrier: L2 library candidates exist but SCOUT capability_report is missing")
     all_raw_units=[]
     for t in plan.get("tasks") or []:
         if isinstance(t,dict):
@@ -88,6 +92,8 @@ def normalize_plan(plan):
             evidence=str(unit.get("library_evidence") or "").strip()
             symbol=str(unit.get("symbol") or "").strip()
             files=list(unit.get("files") or [])
+            if not str(unit.get("execution") or "").strip(): issues.append(f"{uid}: HOW/execution missing")
+            if not str(unit.get("verification") or "").strip(): issues.append(f"{uid}: PASS/verification missing")
             if title.strip().lower() in GENERIC_TITLES and len(steps)<2:
                 issues.append(f"{uid}: generic/coarse work_unit; expand it")
             if _is_code(unit) and cls.lower() not in DISCOVERY_CLASSES:
@@ -101,7 +107,7 @@ def normalize_plan(plan):
                 "library_evidence":evidence,"risk":str(unit.get("risk") or "medium"),
                 "provider":str(unit.get("provider") or ""),"model":str(unit.get("model") or ""),
                 "reasoning":str(unit.get("reasoning") or "CMD role route"),
-                "verification":str(unit.get("verification") or ""),"steps":steps,
+                "execution":str(unit.get("execution") or ""),"verification":str(unit.get("verification") or ""),"steps":steps,
             })
         out["tasks"].append({"id":tid,"title":str(task.get("title") or tid),"description":str(task.get("description") or ""),"dependencies":list(task.get("dependencies") or []),"task_class":str(task.get("task_class") or "general"),"risk":str(task.get("risk") or "medium"),"verification":str(task.get("verification") or ""),"work_units":normalized_units})
     if not out["tasks"]: issues.append("plan has no tasks")
