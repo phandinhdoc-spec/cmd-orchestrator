@@ -15,23 +15,23 @@ import os,sys
 sys.path.insert(0,os.environ["TD"])
 from cmd_orchestrator.config import VERSION
 from cmd_orchestrator.storage import STORE
-from cmd_orchestrator.engine import begin_prompt_review,select_prompt,capture_hermes_plan,approve_run,update_work_unit,complete_run
+from cmd_orchestrator.engine import begin_planning,capture_hermes_plan,approve_run,update_work_unit,complete_run
 from cmd_orchestrator.scheduler import ready_frontier
 from cmd_orchestrator.dsl import render_plan
 
-assert VERSION=="1.3.2"
-x=begin_prompt_review("write feature","GRILLED: write feature with tests",project="SELFTEST")
+assert VERSION=="1.4.0"
+x=begin_planning("write feature with tests",project="SELFTEST")
 rid=x["run_id"]
-assert STORE.prompt(rid)["status"]=="PENDING"
-select_prompt("grilled",run_id=rid)
-plan={"summary":"feature","tasks":[
+assert STORE.prompt(rid)["selection"]=="original"
+assert STORE.run(rid)["current_stage"]=="planning_l1"
+plan={"summary":"feature","layers":{"L1":{"objective":"write feature","scope":"feature","deliverables":["code","tests"],"constraints":[]},"L2":{"architecture":"small module","process":["discover","design","implement","verify"],"rules":["reuse first"],"library_candidates":["stdlib"],"scout_status":"DONE","capability_report":{"stdlib":"sufficient"}},"L3":{"status":"complete"}},"tasks":[
  {"id":"T1","title":"Design","description":"design interfaces","dependencies":[],"work_units":[
-   {"id":"W1.0","title":"Library discovery","description":"inspect dependencies and reusable APIs","dependencies":[],"task_class":"library_discovery","risk":"low","provider":"commandcode","model":"luna","reasoning":"cheap discovery","verification":"dependency evidence","steps":[{"id":"S1.0.1","title":"inspect dependencies"},{"id":"S1.0.2","title":"record reuse decision"}]},
-   {"id":"W1.1","title":"Interface design","description":"define contract","dependencies":["W1.0"],"task_class":"design","risk":"medium","provider":"commandcode","model":"terra","reasoning":"Hermes selected balanced model","verification":"contract reviewed","steps":[{"id":"S1.1.1","title":"inspect"},{"id":"S1.1.2","title":"define interfaces"}]}
+   {"id":"W1.0","title":"Library discovery","description":"inspect dependencies and reusable APIs","dependencies":[],"task_class":"library_discovery","risk":"low","provider":"commandcode","model":"luna","reasoning":"cheap discovery","execution":"inspect dependency metadata and APIs","verification":"dependency evidence","steps":[{"id":"S1.0.1","title":"inspect dependencies"},{"id":"S1.0.2","title":"record reuse decision"}]},
+   {"id":"W1.1","title":"Interface design","description":"define contract","dependencies":["W1.0"],"task_class":"design","risk":"medium","provider":"commandcode","model":"terra","reasoning":"Hermes selected balanced model","execution":"define stable interfaces from capability report","verification":"contract reviewed","steps":[{"id":"S1.1.1","title":"inspect"},{"id":"S1.1.2","title":"define interfaces"}]}
  ]},
  {"id":"T2","title":"Implementation","description":"mixed difficulty","dependencies":["T1"],"work_units":[
-   {"id":"W2.1","title":"Implement helper_a","description":"one atomic helper","dependencies":["W1.0","W1.1"],"task_class":"implementation","symbol":"helper_a","library_evidence":"project and standard APIs checked; custom project logic required","files":["feature.py"],"risk":"low","provider":"commandcode","model":"luna","reasoning":"Hermes selected cheap model","verification":"unit tests","steps":[{"id":"S2.1.1","title":"implement helper_a"},{"id":"S2.1.2","title":"test helper_a"}]},
-   {"id":"W2.2","title":"Implement transition","description":"state transition function","dependencies":["W1.0","W1.1"],"task_class":"algorithm","symbol":"transition","library_evidence":"state library checked; project-specific transition required","files":["state.py"],"risk":"high","provider":"commandcode","model":"sol","reasoning":"Hermes selected strong model","verification":"edge tests","steps":[{"id":"S2.2.1","title":"implement transition"},{"id":"S2.2.2","title":"edge cases"}]}
+   {"id":"W2.1","title":"Implement helper_a","description":"one atomic helper","dependencies":["W1.0","W1.1"],"task_class":"implementation","symbol":"helper_a","library_evidence":"project and standard APIs checked; custom project logic required","files":["feature.py"],"risk":"low","provider":"commandcode","model":"luna","reasoning":"Hermes selected cheap model","execution":"implement planner-specified helper contract","verification":"unit tests","steps":[{"id":"S2.1.1","title":"implement helper_a"},{"id":"S2.1.2","title":"test helper_a"}]},
+   {"id":"W2.2","title":"Implement transition","description":"state transition function","dependencies":["W1.0","W1.1"],"task_class":"algorithm","symbol":"transition","library_evidence":"state library checked; project-specific transition required","files":["state.py"],"risk":"high","provider":"commandcode","model":"sol","reasoning":"Hermes selected strong model","execution":"implement planner-specified state transition algorithm","verification":"edge tests","steps":[{"id":"S2.2.1","title":"implement transition"},{"id":"S2.2.2","title":"edge cases"}]}
  ]}
 ]}
 y=capture_hermes_plan(plan,rid)
