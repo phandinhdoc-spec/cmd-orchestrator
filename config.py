@@ -2,7 +2,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-VERSION = "1.5.1"
+VERSION = "1.5.2"
 PLUGIN_ID = "cmd-orchestrator"
 
 STATE_ROOT = Path.home() / ".hermes" / "state" / PLUGIN_ID
@@ -27,14 +27,15 @@ DEFAULT_SETTINGS = {
         "manager": {"provider": "commandcode", "model": "deepseek-v4-flash-fast",
                     "fallback_provider": "commandcode", "fallback_model": "muse-spark-1.3-contributor"},
         "incident_analyst": {"provider": "commandcode", "models": ["sol", "mimo-v4-pro"], "confirmed_user_defect_only": True},
-        "patcher": {"provider": "commandcode", "model": "terra", "confirmed_user_defect_only": True},
+        "patcher": {"provider": "commandcode", "capability_tier": "terra-class", "reference_model": "terra",
+                    "selection": "cheapest_available_terra_class", "confirmed_user_defect_only": True},
     },
     "allow_plan_model_override": False,
     "allow_secretary_model_override": False,
     "allow_manager_model_override": False,
     "allow_incident_models_on_normal_path": False,
     "cmd_model_override_human_only": True,
-    "cmd_model_override_locked_roles": ["planner","secretary","manager","incident_analyst","patcher"],
+    "cmd_model_override_locked_roles": ["planner","secretary","manager","incident_analyst"],
     "cmd_model_reserved_models_forbidden_to_workers": True,
     "incident_requires_user_feedback": True,
     "incident_requires_hermes_confirmation": True,
