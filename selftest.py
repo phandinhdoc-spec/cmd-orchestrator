@@ -20,7 +20,7 @@ from cmd_orchestrator.scheduler import ready_frontier
 from cmd_orchestrator.router import locked_role
 from cmd_orchestrator.dsl import render_plan
 
-assert VERSION=="1.5.1"
+assert VERSION=="1.5.2"
 assert locked_role("planner")["model"]=="gemini-3.8-flash"
 assert locked_role("secretary")["model"]=="muse-spark-1.3-contributor"
 assert locked_role("manager")["model"]=="deepseek-v4-flash-fast"
@@ -30,7 +30,7 @@ try:
 except PermissionError:
     pass
 assert "sol" in locked_role("incident_analyst",confirmed_user_defect=True)["models"]
-assert locked_role("patcher",confirmed_user_defect=True)["model"]=="terra"
+patch=locked_role("patcher",confirmed_user_defect=True)\nassert patch["capability_tier"]=="terra-class" and patch["reference_model"]=="terra" and not patch.get("model"), patch
 x=begin_prompt_review("write feature","GRILLED: write feature with tests",project="SELFTEST")
 rid=x["run_id"]
 assert STORE.prompt(rid)["status"]=="PENDING"
