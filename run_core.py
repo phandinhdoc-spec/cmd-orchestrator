@@ -20,7 +20,7 @@ class RunCoreMixin:
         rid=f"run_{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"; t=now()
         with LOCK,con() as c:c.execute("""INSERT INTO runs(run_id,project,repository,request,status,mode,auto_mode,current_stage,process_id,session_id,created_at,updated_at)
           VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",(rid,safe(project,256),safe(repository,1024),safe(request),"PROMPT_REVIEW",mode,auto_mode,"prompt_review",os.getpid(),safe(session_id,256),t,t))
-        self.checkpoint(rid,"run_created",{"version":VERSION,"owner":"hermes"}); return rid
+        self.checkpoint(rid,"run_created",{"version":VERSION,"owner":"cmd_control_plane","runtime":"hermes"}); return rid
     def set_prompt(self,rid,original,grilled=""):
         t=now()
         with LOCK,con() as c:
