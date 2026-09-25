@@ -2,7 +2,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-VERSION = "1.5.0"
+VERSION = "1.5.1"
 PLUGIN_ID = "cmd-orchestrator"
 
 STATE_ROOT = Path.home() / ".hermes" / "state" / PLUGIN_ID
@@ -33,6 +33,9 @@ DEFAULT_SETTINGS = {
     "allow_secretary_model_override": False,
     "allow_manager_model_override": False,
     "allow_incident_models_on_normal_path": False,
+    "cmd_model_override_human_only": True,
+    "cmd_model_override_locked_roles": ["planner","secretary","manager","incident_analyst","patcher"],
+    "cmd_model_reserved_models_forbidden_to_workers": True,
     "incident_requires_user_feedback": True,
     "incident_requires_hermes_confirmation": True,
     "patcher_receives_bounded_packet": True,
