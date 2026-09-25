@@ -288,6 +288,10 @@ When working inside a project, CMD also keeps a human-readable checkpoint at:
 .ai/task_on_progress.md
 ```
 
+## Human-only model override guard
+
+`/cmd-model` is an operator escape hatch for **ordinary pending worker units only**. It cannot change PLANNER, SECRETARY, MANAGER, INCIDENT_ANALYST or PATCHER routes, and it cannot assign their reserved models to an ordinary worker. Agent/tool calls have no model-override tool surface, so automated execution cannot use this command to bypass the locked role policy.
+
 ## Model ownership
 
 CMD is the routing-policy authority. Hermes exposes the available provider/model catalog and executes the selected route. CMD stores both its role-selected route and any operator override at work-unit level.
