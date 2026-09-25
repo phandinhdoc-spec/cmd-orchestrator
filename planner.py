@@ -11,10 +11,15 @@ def hermes_plan_contract():
     """Hard planning contract. Hermes owns orchestration; CMD enforces execution granularity/policy."""
     return {
         "owner": "hermes",
+        "hierarchy": {"orchestrator":"hermes","default_model":"secretary","planner":"strong_reasoning","scout":"fast_research","coder":"execution","verifier":"independent_check"},
         "resolution": "task/work_unit/step",
         "hard_rules": [
             "LIBRARY-FIRST: before custom implementation, search project dependencies, standard library/framework APIs, official packages, then suitable maintained third-party libraries.",
-            "REIMPLEMENT_EXISTING_LIBRARY is forbidden. If an existing library satisfies the requirement, create integration/configuration work instead of recreating it.",
+            "REIMPLEMENT_EXISTING_LIBRARY is forbidden. SCOUT searches for ready-made components/packages/tools first; searching how to recreate their internals is not acceptable discovery.",
+            "PLANNER is a privileged strong-reasoning role (prefer Sol / DeepSeek V4 Pro when available). The session default model is SECRETARY and has no architecture authority.",
+            "SCOUT is a fast research/procurement role (prefer Muse Spark 1.3 Contributor when available) that returns reusable components plus usage/API facts, not implementation tutorials.",
+            "CODER receives a complete algorithm/contract from PLANNER and should use the cheapest capable coding model; CODER must not redesign architecture or algorithm.",
+            "VERIFIER may reject work but must escalate design changes to PLANNER.",
             "For code, one independently changeable function/method is one atomic work_unit by default.",
             "Tiny getters/setters/generated wrappers may be grouped only when agent startup/coordination would cost more than the work.",
             "Every custom implementation unit must depend on a library_discovery unit or carry explicit library_evidence explaining why no suitable reusable implementation exists.",
@@ -40,7 +45,7 @@ def hermes_plan_contract():
                     "symbol": "function/method/module being changed",
                     "files": ["write-scope paths"],
                     "library_evidence": "packages/APIs checked, selected reusable library, or evidence custom code is necessary",
-                    "risk": "low|medium|high", "provider": "Hermes-selected provider",
+                    "risk": "low|medium|high", "role": "planner|scout|coder|verifier|integrator", "provider": "Hermes-selected provider",
                     "model": "Hermes-selected model", "reasoning": "route rationale",
                     "verification": "acceptance evidence",
                     "steps": [{"id": "S1.1.1", "title": "string", "description": "string"}],
@@ -92,7 +97,7 @@ def normalize_plan(plan):
                     issues.append(f"{uid}: code unit must identify one atomic function/method in symbol (or justify grouping in library_evidence)")
             normalized_units.append({
                 "id":uid,"title":title,"description":str(unit.get("description") or ""),
-                "dependencies":deps,"task_class":cls,"symbol":symbol,"files":files,
+                "dependencies":deps,"task_class":cls,"role":str(unit.get("role") or ("scout" if cls.lower() in DISCOVERY_CLASSES else "coder" if _is_code(unit) else "worker")),"symbol":symbol,"files":files,
                 "library_evidence":evidence,"risk":str(unit.get("risk") or "medium"),
                 "provider":str(unit.get("provider") or ""),"model":str(unit.get("model") or ""),
                 "reasoning":str(unit.get("reasoning") or "Hermes route"),
