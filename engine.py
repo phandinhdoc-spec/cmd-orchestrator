@@ -59,6 +59,10 @@ def approve_run(run_id=None):
         raise ValueError("no active run")
     if not STORE.work_units(r["run_id"]):
         raise ValueError("no detailed Hermes work_units captured; plan must be expanded before execution")
+    if r.get("current_stage")=="plan_expansion" or r.get("status")=="PLANNING":
+        raise ValueError("plan still requires expansion/validation; capture a valid acyclic plan before execution")
+    if r.get("review_state")=="APPROVED" and r.get("status")=="RUNNING":
+        raise ValueError("run is already approved/running; refusing duplicate approval/instruction injection")
     STORE.set_run(r["run_id"],status="RUNNING",stage="execution",review_state="APPROVED")
     STORE.checkpoint(r["run_id"],"run_approved",{"source":"human_or_cmd"})
     return {
