@@ -16,6 +16,7 @@ sys.path.insert(0,os.environ["TD"])
 from cmd_orchestrator.config import VERSION
 from cmd_orchestrator.storage import STORE
 from cmd_orchestrator.engine import begin_prompt_review,select_prompt,capture_hermes_plan,approve_run,update_work_unit,complete_run
+from cmd_orchestrator.scheduler import ready_frontier
 from cmd_orchestrator.dsl import render_plan
 
 assert VERSION=="1.3.2"
@@ -41,8 +42,14 @@ STORE.update_unit(rid,"W2.1",provider="manual",model="cheap",route_source="opera
 STORE.reset_unit_to_hermes(rid,"W2.1")
 assert STORE.unit(rid,"W2.1")["model"]=="luna"
 approve_run(rid)
+front=ready_frontier(rid)
+assert [u["unit_id"] for u in front["ready"]]==["W1.0"], front
 update_work_unit("W1.0",status="DONE",verification="PASS",run_id=rid)
+front=ready_frontier(rid)
+assert [u["unit_id"] for u in front["ready"]]==["W1.1"], front
 update_work_unit("W1.1",status="DONE",verification="PASS",run_id=rid)
+front=ready_frontier(rid)
+assert {u["unit_id"] for u in front["ready"]}=={"W2.1","W2.2"}, front
 update_work_unit("W2.1",status="DONE",verification="PASS",run_id=rid)
 update_work_unit("W2.2",status="DONE",verification="PASS",run_id=rid)
 complete_run(True,"ok",rid)
