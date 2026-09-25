@@ -2,7 +2,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-VERSION = "1.3.2"
+VERSION = "1.4.0"
 PLUGIN_ID = "cmd-orchestrator"
 
 STATE_ROOT = Path.home() / ".hermes" / "state" / PLUGIN_ID
@@ -25,12 +25,16 @@ DEFAULT_SETTINGS = {
     "coder_policy": "cheapest_capable_after_algorithm_contract",
     "secretary_policy": "interaction_only_no_architecture_authority",
     "simple_path": "hermes_direct",
-    "grill_for_substantial": True,
-    "require_prompt_review": True,
+    "grill_for_substantial": False,
+    "planning_pipeline": "layered_overlap",
+    "planning_layers": ["mission", "execution_design", "work_plan"],
+    "scout_overlap": True,
+    "max_stage_reentries": 8,
+    "require_prompt_review": False,
     "require_plan_review": True,
     "plan_resolution": "task/work_unit/step",
     "max_parallel": 3,
-    "atomic_code_unit": "function_or_method",
+    "atomic_code_unit": "smallest_independently_delegable_unit",
     "library_first": True,
     "forbid_library_reimplementation": True,
     "parallel_independent_units": True,
