@@ -4,7 +4,7 @@ from .config import load_settings
 from .storage import STORE
 from .tools import SCHEMAS, HANDLERS
 from .commands import (
-    c_status,c_mode,c_auto,make_plan,c_prompt,c_review,c_edit,make_run,c_route,c_model,c_models,
+    c_status,c_mode,c_auto,make_plan,c_review,c_edit,make_run,c_route,c_model,c_models,
     c_learn,c_learning,c_clean,c_checkpoint,c_resume,c_history,c_rescue,c_abort,c_help
 )
 from .rescue import looks_limited, rescue
