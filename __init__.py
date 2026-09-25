@@ -39,7 +39,7 @@ def register(ctx):
       ("cmd-models",c_models,"Alias: show all models visible to Hermes.",""),
       ("cmd-learn",c_learn,"Review/edit/teach learning for Hermes.","[add|edit|approve|activate|disable|reject|delete ...]"),
       ("cmd-learning",c_learning,"Alias of /cmd-learn.",""),
-      ("cmd-route",c_route,"Explain v1.3.2 routing ownership.","[task]"),
+      ("cmd-route",c_route,"Explain v1.4 routing ownership.","[task]"),
       ("cmd-mode",c_mode,"Compatibility cost/quality hint; Hermes still owns routing.","[cheap|balanced|quality|fast]"),
       ("cmd-auto",c_auto,"Set CMD intervention mode.","[off|review|on]"),
       ("cmd-clean",c_clean,"Preview/selectively clean CMD-generated artifacts or deep-clean CMD state.","[select IDs...|project|all] [--deep] [--learning]"),
@@ -48,7 +48,7 @@ def register(ctx):
       ("cmd-history",c_history,"Show recent runs.",""),
       ("cmd-rescue",c_rescue,"Checkpoint and call local fm rescue.","[reason]"),
       ("cmd-abort",c_abort,"Abort current run safely.","[reason]"),
-      ("cmd-help",c_help,"Show v1.3.2 control-plane commands.","")]
+      ("cmd-help",c_help,"Show v1.4 control-plane commands.","")]
     for n,h,d,ah in cmds:
         ctx.register_command(n,handler=h,description=d,args_hint=ah)
 
