@@ -1,8 +1,12 @@
 from __future__ import annotations
 import concurrent.futures, json, os, re, time, uuid
 from pathlib import Path
-from .commandcode_adapter import invoke
-from .native_router import choose, review_route
+try:
+    from .commandcode_adapter import invoke
+    from .native_router import choose, review_route
+except ImportError:
+    from commandcode_adapter import invoke
+    from native_router import choose, review_route
 
 STATE=Path.home()/".commandcode"/"cmd-orchestrator"
 RUNS=STATE/"runs"
