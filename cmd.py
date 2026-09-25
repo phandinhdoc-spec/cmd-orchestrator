@@ -3,8 +3,8 @@ from __future__ import annotations
 import argparse, json, os, sys
 from pathlib import Path
 if __package__ in (None,""):
-    sys.path.insert(0,str(Path(__file__).resolve().parent.parent))
-    from cmd_orchestrator.native import plan,run,status
+    sys.path.insert(0,str(Path(__file__).resolve().parent))
+    from native import plan,run,status
 else:
     from .native import plan,run,status
 
