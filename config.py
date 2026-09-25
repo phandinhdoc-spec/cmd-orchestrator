@@ -16,7 +16,7 @@ SETTINGS_JSON = STATE_ROOT / "settings.json"
 DEFAULT_SETTINGS = {
     "version": VERSION,
     "auto": "review",
-    "mode": "balanced",  # compatibility only; Hermes owns routing in v1.2
+    "mode": "balanced",  # compatibility cost/quality hint; CMD owns role routing
     "routing_owner": "cmd_control_plane",
     "role_routing": True,
     "planner_requires_strong_reasoning": True,
