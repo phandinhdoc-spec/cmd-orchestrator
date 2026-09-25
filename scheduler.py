@@ -34,7 +34,12 @@ def ready_frontier(run_id=None, limit=None):
     running=[u for u in units if u.get("status")=="RUNNING"]
     slots=max(0,max_parallel-len(running))
     if slots==0:
-        return {"run_id":rid,"max_parallel":max_parallel,"running":[u["unit_id"] for u in running],"ready":[]}
+        return {
+            "run_id":rid,"max_parallel":max_parallel,
+            "running":[u["unit_id"] for u in running],"ready":[],
+            "blocked":{},"deadlocked":False,
+            "instruction":"All worker slots are occupied. Do not poll in a tight loop; wait for a RUNNING worker result before requesting the next READY frontier.",
+        }
 
     candidates=[]
     blocked={}
