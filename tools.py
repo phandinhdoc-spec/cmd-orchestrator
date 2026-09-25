@@ -4,6 +4,7 @@ from .engine import begin_prompt_review, select_prompt, capture_hermes_plan, pat
 from .router import route
 from .storage import STORE
 from .config import hermes_model_catalog
+from .scheduler import ready_frontier
 
 SCHEMAS={
 "cmd_prompt_capture":{"name":"cmd_prompt_capture","description":"Capture the full original and Grill Me prompts for mandatory human review before substantial work.","parameters":{"type":"object","properties":{"original_prompt":{"type":"string"},"grilled_prompt":{"type":"string"},"project":{"type":"string"},"repository":{"type":"string"}},"required":["original_prompt","grilled_prompt"]}},
@@ -16,6 +17,7 @@ SCHEMAS={
 "cmd_learning_capture":{"name":"cmd_learning_capture","description":"Store Hermes reflection items as human-reviewable observations/lessons/rules.","parameters":{"type":"object","properties":{"items":{"type":"array","items":{"type":"object","properties":{"statement":{"type":"string"},"kind":{"type":"string"},"scope":{"type":"string"},"evidence":{"type":"string"},"confidence":{"type":"string"}},"required":["statement"]}},"run_id":{"type":"string"}},"required":["items"]}},
 "cmd_learning_context":{"name":"cmd_learning_context","description":"Return user-approved/active lessons that Hermes should consider without surrendering orchestration authority.","parameters":{"type":"object","properties":{"limit":{"type":"integer"}}}},
 "cmd_models_refresh":{"name":"cmd_models_refresh","description":"Return providers/models visible to Hermes. Hermes remains the default routing authority.","parameters":{"type":"object","properties":{}}},
+"cmd_ready_batch":{"name":"cmd_ready_batch","description":"Return the dependency-ready, write-scope-safe frontier of atomic work_units that Hermes should dispatch to separate workers concurrently.","parameters":{"type":"object","properties":{"run_id":{"type":"string"},"limit":{"type":"integer","minimum":1}}}},
 # compatibility tools
 "cmd_orchestrate":{"name":"cmd_orchestrate","description":"Compatibility entrypoint: begin CMD control workflow; Hermes still owns planning/routing.","parameters":{"type":"object","properties":{"request":{"type":"string"},"project":{"type":"string"},"repository":{"type":"string"}},"required":["request"]}},
 "cmd_route":{"name":"cmd_route","description":"Compatibility routing preview. Returns that Hermes owns default routing plus learning context.","parameters":{"type":"object","properties":{"task":{"type":"string"},"task_class":{"type":"string"},"risk":{"type":"string"}},"required":["task"]}},
@@ -32,6 +34,7 @@ def cmd_approve_run(p): return _j(approve_run(p.get("run_id") or None))
 def cmd_unit_update(p): return _j(update_work_unit(p["unit_id"],p.get("status"),p.get("verification",""),p.get("output_summary",""),p.get("files_touched"),p.get("attempts"),p.get("error",""),p.get("steps_done"),p.get("run_id") or None))
 def cmd_complete_run(p): return _j(complete_run(p.get("success",True),p.get("summary",""),p.get("run_id") or None))
 def cmd_models_refresh(p): return _j(hermes_model_catalog())
+def cmd_ready_batch(p): return _j(ready_frontier(p.get("run_id") or None,p.get("limit")))
 def cmd_orchestrate(p): return _j(orchestrate(p["request"],p.get("project",""),p.get("repository","")))
 def cmd_route(p): return _j(route(p["task"],p.get("task_class","general"),p.get("risk","medium")))
 def cmd_learning_stats(p): return _j(STORE.learning_stats(p.get("limit",30)))
