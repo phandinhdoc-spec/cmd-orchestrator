@@ -11,7 +11,7 @@ from .rescue import looks_limited, rescue
 
 log=logging.getLogger(__name__)
 
-ORCHESTRATED_GUIDANCE = """cmd-orchestrator v1.4.0 is the CONTROL/MANAGEMENT PLANE. Hermes is the EXECUTION DIRECTOR / AGENT RUNTIME, not the policy owner. The session default model is only the SECRETARY. Substantial planning/architecture/algorithm work must be delegated to a strong PLANNER (prefer Sol or DeepSeek V4 Pro when available).
+ORCHESTRATED_GUIDANCE = """cmd-orchestrator v1.5.0 is the CONTROL/MANAGEMENT PLANE. Hermes is the EXECUTION DIRECTOR / AGENT RUNTIME, not the policy owner. The session default model is only the SECRETARY. Normal planning is HARD-LOCKED to Gemini 3.8 Flash through AGY. SECRETARY is HARD-LOCKED to Muse Spark 1.3 Contributor. MANAGER intelligence is HARD-LOCKED to DeepSeek V4 Flash Fast with Muse Spark 1.3 Contributor fallback. Sol/MiMo V4 Pro are incident-only.
 
 For each new user request, Hermes first decides DIRECT vs ORCHESTRATED using its own judgment:
 - DIRECT: simple, low-risk, obvious tool action. Execute directly with the most reliable direct tool (shell/API; Computer Use only when GUI is actually needed). Skip Grill and plan review.
@@ -19,7 +19,7 @@ For each new user request, Hermes first decides DIRECT vs ORCHESTRATED using its
   1) Invoke Grill Me / grill-tab if available. Never silently replace the user prompt.
   2) Call cmd_prompt_capture with the FULL original prompt and FULL grilled prompt. Show both in full and wait for the human to choose original/grilled/edit.
   3) After selection, CMD delegates architecture/algorithm/DAG design through Hermes to the strong PLANNER; do not let the default SECRETARY model design the system. FIRST dispatch SCOUT research/procurement work to find ready-made components, libraries, packages and tools plus their usage/API (prefer Muse Spark 1.3 Contributor when available). Do not research how to recreate components when suitable components exist. Then the PLANNER creates/refines the plan. FIRST perform library/dependency discovery. Reuse existing project dependencies, standard/framework APIs, official packages, or maintained libraries; REIMPLEMENT_EXISTING_LIBRARY is a hard failure. Then use task -> work_unit -> step. For code, one independently changeable function/method = one atomic work_unit by default. A step normally is not an agent call.
-  4) CMD chooses provider/model policy by ROLE; Hermes executes the selected route, not merely task difficulty: PLANNER=strong reasoning; SCOUT=fast research/procurement; CODER=cheapest capable model executing a complete planner algorithm/contract; VERIFIER=independent checking. CODER must escalate rather than redesign architecture/algorithm.  Call cmd_capture_plan. If CMD reports plan_needs_expansion, expand the coarse units; CMD must not invent the missing plan.
+  4) CMD chooses provider/model policy by ROLE; Hermes executes the selected route, not merely task difficulty: PLANNER=AGY/Gemini 3.8 Flash; SECRETARY/SCOUT=Muse Spark 1.3 Contributor; MANAGER=DeepSeek V4 Flash Fast with Muse Contributor fallback; CODER=cheapest capable packet worker; VERIFIER=independent checking. Sol/MiMo V4 Pro are forbidden unless a user-reported defect is confirmed by Hermes; then they diagnose only, and Terra receives the bounded patch packet. CODER must escalate rather than redesign architecture/algorithm.  Call cmd_capture_plan. If CMD reports plan_needs_expansion, expand the coarse units; CMD must not invent the missing plan.
   5) Show the DSL-like /cmd-review. Human may edit pending tasks/work_units or override routes. If the human says OK/approve, call cmd_approve_run (or they may use /cmd-run).
   6) During execution re-read each work_unit before starting it. Build the READY frontier from the dependency DAG and dispatch independent units to separate workers concurrently up to max_parallel. Do not serialize independent small units. Prevent overlapping write scopes. Workers never recursively orchestrate; CMD remains the control-plane authority; Hermes remains the execution runtime. PENDING/READY work can change; RUNNING/DONE is locked.
   7) After verification call cmd_complete_run, reflect on what was actually learned, then call cmd_learning_capture. User-approved/user-taught learning has higher authority than inferred learning.
@@ -41,7 +41,7 @@ def register(ctx):
       ("cmd-models",c_models,"Alias: show all models visible to Hermes.",""),
       ("cmd-learn",c_learn,"Review/edit/teach learning for Hermes.","[add|edit|approve|activate|disable|reject|delete ...]"),
       ("cmd-learning",c_learning,"Alias of /cmd-learn.",""),
-      ("cmd-route",c_route,"Explain v1.4.0 routing ownership.","[task]"),
+      ("cmd-route",c_route,"Explain v1.5.0 routing ownership.","[task]"),
       ("cmd-mode",c_mode,"Compatibility cost/quality hint; Hermes still owns routing.","[cheap|balanced|quality|fast]"),
       ("cmd-auto",c_auto,"Set CMD intervention mode.","[off|review|on]"),
       ("cmd-clean",c_clean,"Preview/selectively clean CMD-generated artifacts or deep-clean CMD state.","[select IDs...|project|all] [--deep] [--learning]"),
@@ -50,7 +50,7 @@ def register(ctx):
       ("cmd-history",c_history,"Show recent runs.",""),
       ("cmd-rescue",c_rescue,"Checkpoint and call local fm rescue.","[reason]"),
       ("cmd-abort",c_abort,"Abort current run safely.","[reason]"),
-      ("cmd-help",c_help,"Show v1.4.0 control-plane commands.","")]
+      ("cmd-help",c_help,"Show v1.5.0 control-plane commands.","")]
     for n,h,d,ah in cmds:
         ctx.register_command(n,handler=h,description=d,args_hint=ah)
 
@@ -66,7 +66,7 @@ def register(ctx):
             if stage=="prompt_review":
                 return {"content":"CMD stage=prompt_review. Interpret the user's reply as choosing/editing the displayed FULL prompt; call cmd_prompt_select. Do not execute the substantive task yet."}
             if stage in ("hermes_plan","plan_expansion"):
-                return {"content":"CMD stage=planning. CMD owns orchestration policy; Hermes is the runtime. The default/session model is SECRETARY only. Delegate architecture, algorithm and DAG design to a strong PLANNER (prefer Sol or DeepSeek V4 Pro when available). Use fast SCOUT workers (prefer Muse Spark 1.3 Contributor when available) to find ready-made libraries/tools and usage/API before custom code. Enforce library-first discovery and never recreate a suitable library. For code, decompose to one function/method per atomic work_unit by default. Produce/expand task -> work_unit -> step, model the dependency DAG and independent parallel units, then call cmd_capture_plan; route each work_unit with Hermes' model choice."}
+                return {"content":"CMD stage=planning. CMD owns orchestration policy; Hermes is the runtime. The default/session model is SECRETARY only. Delegate architecture, algorithm and DAG design ONLY to AGY/Gemini 3.8 Flash. Use Muse Spark 1.3 Contributor as SECRETARY/SCOUT to find ready-made libraries/tools and usage/API before custom code. Enforce library-first discovery and never recreate a suitable library. For code, decompose to one function/method per atomic work_unit by default. Produce/expand task -> work_unit -> step, model the dependency DAG and independent parallel units, then call cmd_capture_plan; route each work_unit with Hermes' model choice."}
             if stage=="review":
                 return {"content":"CMD stage=review. If the user requests edits, apply them with cmd_plan_patch. If they approve/OK, call cmd_approve_run and execute its returned instruction."}
             if stage in ("execution","resume"):
