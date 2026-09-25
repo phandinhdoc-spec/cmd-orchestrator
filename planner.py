@@ -8,10 +8,10 @@ CODE_CLASSES = {"code", "implementation", "coding", "refactor", "algorithm", "te
 DISCOVERY_CLASSES = {"library_discovery", "dependency_discovery", "reuse_discovery"}
 
 def hermes_plan_contract():
-    """Hard planning contract. Hermes owns orchestration; CMD enforces execution granularity/policy."""
+    """Hard planning contract. CMD owns orchestration policy; Hermes is the execution runtime."""
     return {
-        "owner": "hermes",
-        "hierarchy": {"orchestrator":"hermes","default_model":"secretary","planner":"strong_reasoning","scout":"fast_research","coder":"execution","verifier":"independent_check"},
+        "owner": "cmd_control_plane",
+        "hierarchy": {"control_plane":"cmd","runtime":"hermes","default_model":"secretary","planner":"strong_reasoning","scout":"fast_research","coder":"execution","verifier":"independent_check"},
         "resolution": "task/work_unit/step",
         "hard_rules": [
             "LIBRARY-FIRST: before custom implementation, search project dependencies, standard library/framework APIs, official packages, then suitable maintained third-party libraries.",
@@ -24,11 +24,11 @@ def hermes_plan_contract():
             "Tiny getters/setters/generated wrappers may be grouped only when agent startup/coordination would cost more than the work.",
             "Every custom implementation unit must depend on a library_discovery unit or carry explicit library_evidence explaining why no suitable reusable implementation exists.",
             "Independent READY work_units should be dispatched to separate workers concurrently up to max_parallel; do not serialize independent small units.",
-            "Workers may not recursively orchestrate. Hermes is the single parent orchestrator.",
+            "Workers may not recursively orchestrate. CMD owns the orchestration policy/state; Hermes is the single execution runtime that dispatches CMD-approved work.",
             "Freeze shared interfaces/signatures before parallel dependent implementation; finish with integration/regression verification.",
         ],
         "rules": [
-            "Hermes owns planning, dependency analysis, worker assignment, model selection, and final integration.",
+            "CMD owns orchestration policy, DAG state, role authority and run-to-completion. Strong PLANNER owns architecture/algorithm design. Hermes executes the resulting work packets and integration actions.",
             "Make the plan detailed enough to expose mixed difficulty and parallelism.",
             "A work_unit is the smallest independently routable/executable unit.",
             "Steps are an internal checklist, not routing boundaries.",
@@ -45,8 +45,8 @@ def hermes_plan_contract():
                     "symbol": "function/method/module being changed",
                     "files": ["write-scope paths"],
                     "library_evidence": "packages/APIs checked, selected reusable library, or evidence custom code is necessary",
-                    "risk": "low|medium|high", "role": "planner|scout|coder|verifier|integrator", "provider": "Hermes-selected provider",
-                    "model": "Hermes-selected model", "reasoning": "route rationale",
+                    "risk": "low|medium|high", "role": "planner|scout|coder|verifier|integrator", "provider": "CMD role-routed provider",
+                    "model": "CMD role-routed model", "reasoning": "route rationale",
                     "verification": "acceptance evidence",
                     "steps": [{"id": "S1.1.1", "title": "string", "description": "string"}],
                 }],
@@ -100,7 +100,7 @@ def normalize_plan(plan):
                 "dependencies":deps,"task_class":cls,"role":str(unit.get("role") or ("scout" if cls.lower() in DISCOVERY_CLASSES else "coder" if _is_code(unit) else "worker")),"symbol":symbol,"files":files,
                 "library_evidence":evidence,"risk":str(unit.get("risk") or "medium"),
                 "provider":str(unit.get("provider") or ""),"model":str(unit.get("model") or ""),
-                "reasoning":str(unit.get("reasoning") or "Hermes route"),
+                "reasoning":str(unit.get("reasoning") or "CMD role route"),
                 "verification":str(unit.get("verification") or ""),"steps":steps,
             })
         out["tasks"].append({"id":tid,"title":str(task.get("title") or tid),"description":str(task.get("description") or ""),"dependencies":list(task.get("dependencies") or []),"task_class":str(task.get("task_class") or "general"),"risk":str(task.get("risk") or "medium"),"verification":str(task.get("verification") or ""),"work_units":normalized_units})
