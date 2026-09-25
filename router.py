@@ -19,9 +19,12 @@ def route(task: str, task_class="general", risk="medium", mode=None, role="manag
         "decision_owner":"cmd_control_plane","locked":True,"role":role,
         "provider":spec.get("provider",""),"model":spec.get("model",""),
         "models":spec.get("models",[]),
+        "capability_tier":spec.get("capability_tier",""),
+        "reference_model":spec.get("reference_model",""),
+        "selection":spec.get("selection",""),
         "fallback_provider":spec.get("fallback_provider",""),
         "fallback_model":spec.get("fallback_model",""),
-        "reason":"CMD v1.5 hard-locked role route; normal workers still use their approved work-packet route.",
+        "reason":"CMD v1.5.2 role policy. Patcher is capability-locked to Terra-class, not locked to the literal Terra model.",
         "task":task,"task_class":task_class,"risk":risk,"mode":mode or "locked",
         "learning":STORE.learning_stats(10),
     }
