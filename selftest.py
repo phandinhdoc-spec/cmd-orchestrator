@@ -17,6 +17,7 @@ from cmd_orchestrator.config import VERSION
 from cmd_orchestrator.storage import STORE
 from cmd_orchestrator.engine import begin_planning,capture_hermes_plan,approve_run,update_work_unit,complete_run
 from cmd_orchestrator.scheduler import ready_frontier
+from cmd_orchestrator.planner import normalize_plan
 from cmd_orchestrator.dsl import render_plan
 
 assert VERSION=="1.4.0"
@@ -24,6 +25,10 @@ x=begin_planning("write feature with tests",project="SELFTEST")
 rid=x["run_id"]
 assert STORE.prompt(rid)["selection"]=="original"
 assert STORE.run(rid)["current_stage"]=="planning_l1"
+assert not STORE.prompt(rid).get("grilled_prompt")
+# Planning barrier must reject L3 freeze until SCOUT reports on L2 candidates.
+_,barrier_q=normalize_plan({"summary":"x","layers":{"L1":{},"L2":{"library_candidates":["pkg"]},"L3":{}},"tasks":[]})
+assert barrier_q["needs_expansion"] and any("planning_barrier" in x for x in barrier_q["issues"]), barrier_q
 plan={"summary":"feature","layers":{"L1":{"objective":"write feature","scope":"feature","deliverables":["code","tests"],"constraints":[]},"L2":{"architecture":"small module","process":["discover","design","implement","verify"],"rules":["reuse first"],"library_candidates":["stdlib"],"scout_status":"DONE","capability_report":{"stdlib":"sufficient"}},"L3":{"status":"complete"}},"tasks":[
  {"id":"T1","title":"Design","description":"design interfaces","dependencies":[],"work_units":[
    {"id":"W1.0","title":"Library discovery","description":"inspect dependencies and reusable APIs","dependencies":[],"task_class":"library_discovery","risk":"low","provider":"commandcode","model":"luna","reasoning":"cheap discovery","execution":"inspect dependency metadata and APIs","verification":"dependency evidence","steps":[{"id":"S1.0.1","title":"inspect dependencies"},{"id":"S1.0.2","title":"record reuse decision"}]},
