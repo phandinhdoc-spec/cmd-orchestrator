@@ -18,28 +18,30 @@ from cmd_orchestrator.storage import STORE
 from cmd_orchestrator.engine import begin_prompt_review,select_prompt,capture_hermes_plan,approve_run,update_work_unit,complete_run
 from cmd_orchestrator.dsl import render_plan
 
-assert VERSION=="1.2.0"
+assert VERSION=="1.3.0"
 x=begin_prompt_review("write feature","GRILLED: write feature with tests",project="SELFTEST")
 rid=x["run_id"]
 assert STORE.prompt(rid)["status"]=="PENDING"
 select_prompt("grilled",run_id=rid)
 plan={"summary":"feature","tasks":[
  {"id":"T1","title":"Design","description":"design interfaces","dependencies":[],"work_units":[
-   {"id":"W1.1","title":"Interface design","description":"define contract","dependencies":[],"task_class":"design","risk":"medium","provider":"commandcode","model":"terra","reasoning":"Hermes selected balanced model","verification":"contract reviewed","steps":[{"id":"S1.1.1","title":"inspect"},{"id":"S1.1.2","title":"define interfaces"}]}
+   {"id":"W1.0","title":"Library discovery","description":"inspect dependencies and reusable APIs","dependencies":[],"task_class":"library_discovery","risk":"low","provider":"commandcode","model":"luna","reasoning":"cheap discovery","verification":"dependency evidence","steps":[{"id":"S1.0.1","title":"inspect dependencies"},{"id":"S1.0.2","title":"record reuse decision"}]},
+   {"id":"W1.1","title":"Interface design","description":"define contract","dependencies":["W1.0"],"task_class":"design","risk":"medium","provider":"commandcode","model":"terra","reasoning":"Hermes selected balanced model","verification":"contract reviewed","steps":[{"id":"S1.1.1","title":"inspect"},{"id":"S1.1.2","title":"define interfaces"}]}
  ]},
  {"id":"T2","title":"Implementation","description":"mixed difficulty","dependencies":["T1"],"work_units":[
-   {"id":"W2.1","title":"Easy helpers","description":"mechanical helpers","dependencies":["W1.1"],"task_class":"implementation","risk":"low","provider":"commandcode","model":"luna","reasoning":"Hermes selected cheap model","verification":"unit tests","steps":[{"id":"S2.1.1","title":"helper a"},{"id":"S2.1.2","title":"helper b"}]},
-   {"id":"W2.2","title":"Hard algorithm","description":"state machine","dependencies":["W2.1"],"task_class":"algorithm","risk":"high","provider":"commandcode","model":"sol","reasoning":"Hermes selected strong model","verification":"edge tests","steps":[{"id":"S2.2.1","title":"state design"},{"id":"S2.2.2","title":"edge cases"}]}
+   {"id":"W2.1","title":"Implement helper_a","description":"one atomic helper","dependencies":["W1.0","W1.1"],"task_class":"implementation","symbol":"helper_a","library_evidence":"project and standard APIs checked; custom project logic required","files":["feature.py"],"risk":"low","provider":"commandcode","model":"luna","reasoning":"Hermes selected cheap model","verification":"unit tests","steps":[{"id":"S2.1.1","title":"implement helper_a"},{"id":"S2.1.2","title":"test helper_a"}]},
+   {"id":"W2.2","title":"Implement transition","description":"state transition function","dependencies":["W1.0","W1.1"],"task_class":"algorithm","symbol":"transition","library_evidence":"state library checked; project-specific transition required","files":["state.py"],"risk":"high","provider":"commandcode","model":"sol","reasoning":"Hermes selected strong model","verification":"edge tests","steps":[{"id":"S2.2.1","title":"implement transition"},{"id":"S2.2.2","title":"edge cases"}]}
  ]}
 ]}
 y=capture_hermes_plan(plan,rid)
 assert not y["quality"]["needs_expansion"], y
-assert len(STORE.work_units(rid))==3
+assert len(STORE.work_units(rid))==4
 assert "work_unit W2.2" in render_plan(STORE.plan_tree(rid),STORE.run(rid))
 STORE.update_unit(rid,"W2.1",provider="manual",model="cheap",route_source="operator")
 STORE.reset_unit_to_hermes(rid,"W2.1")
 assert STORE.unit(rid,"W2.1")["model"]=="luna"
 approve_run(rid)
+update_work_unit("W1.0",status="DONE",verification="PASS",run_id=rid)
 update_work_unit("W1.1",status="DONE",verification="PASS",run_id=rid)
 update_work_unit("W2.1",status="DONE",verification="PASS",run_id=rid)
 update_work_unit("W2.2",status="DONE",verification="PASS",run_id=rid)
