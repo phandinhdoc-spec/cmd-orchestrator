@@ -19,7 +19,7 @@ from cmd_orchestrator.engine import begin_prompt_review,select_prompt,capture_he
 from cmd_orchestrator.scheduler import ready_frontier
 from cmd_orchestrator.dsl import render_plan
 
-assert VERSION=="1.3.2"
+assert VERSION=="1.3.3"
 x=begin_prompt_review("write feature","GRILLED: write feature with tests",project="SELFTEST")
 rid=x["run_id"]
 assert STORE.prompt(rid)["status"]=="PENDING"
@@ -36,6 +36,21 @@ plan={"summary":"feature","tasks":[
 ]}
 y=capture_hermes_plan(plan,rid)
 assert not y["quality"]["needs_expansion"], y
+
+# Invalid DAGs must be rejected for expansion instead of reaching the scheduler.
+bad_cycle={"summary":"cycle","tasks":[{"id":"TC","title":"Cycle","work_units":[
+ {"id":"WC.1","title":"A","dependencies":["WC.2"],"task_class":"design","steps":[{"title":"a"}]},
+ {"id":"WC.2","title":"B","dependencies":["WC.1"],"task_class":"design","steps":[{"title":"b"}]}
+]}]}
+from cmd_orchestrator.planner import normalize_plan
+_,bad_quality=normalize_plan(bad_cycle)
+assert bad_quality["needs_expansion"] and any("dependency cycle:" in x for x in bad_quality["issues"]), bad_quality
+
+bad_missing={"summary":"missing","tasks":[{"id":"TM","title":"Missing","work_units":[
+ {"id":"WM.1","title":"A","dependencies":["DOES_NOT_EXIST"],"task_class":"design","steps":[{"title":"a"}]}
+]}]}
+_,missing_quality=normalize_plan(bad_missing)
+assert missing_quality["needs_expansion"] and any("unknown dependency" in x for x in missing_quality["issues"]), missing_quality
 assert len(STORE.work_units(rid))==4
 assert "work_unit W2.2" in render_plan(STORE.plan_tree(rid),STORE.run(rid))
 STORE.update_unit(rid,"W2.1",provider="manual",model="cheap",route_source="operator")
