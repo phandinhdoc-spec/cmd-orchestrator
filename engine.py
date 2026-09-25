@@ -71,7 +71,7 @@ def approve_run(run_id=None):
 def execution_instruction(rid):
     return (
         f"Execute cmd-orchestrator run {rid}. Hermes remains the orchestrator. Re-read the saved work_unit immediately before "
-        "starting it because the operator may edit any READY/PENDING unit or route. Execute dependencies first. Treat steps as "
+        "starting it because the operator may edit any READY/PENDING unit or route. Execute dependencies first. Before custom code, enforce library-first reuse: inspect existing project dependencies, standard/framework APIs, official packages, and maintained libraries; never reimplement a suitable library. For code, treat each independently changeable function/method work_unit as atomic. Dispatch independent READY units to separate workers concurrently up to settings.max_parallel, while avoiding overlapping write scopes. Workers must not recursively orchestrate; Hermes remains the sole parent orchestrator. Treat steps as "
         "an internal checklist, not separate agent calls unless Hermes decides that is necessary. Use the provider/model stored on "
         "each work_unit; route_source=operator overrides Hermes' original route. Verify each unit before DONE and checkpoint material "
         "progress. Do not redo DONE units. At the end call cmd_complete_run, then perform a concise Hermes reflection and call "
