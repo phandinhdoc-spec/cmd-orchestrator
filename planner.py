@@ -58,6 +58,37 @@ def _is_code(unit):
     cls=str(unit.get("task_class") or "").strip().lower()
     return cls in CODE_CLASSES or bool(unit.get("symbol"))
 
+def _dag_issues(unit_ids, dependencies):
+    """Validate work-unit dependency graph so execution cannot stall forever."""
+    issues=[]
+    known=set(unit_ids)
+    for uid,deps in dependencies.items():
+        for dep in deps:
+            if dep == uid:
+                issues.append(f"{uid}: self-dependency is forbidden")
+            elif dep not in known:
+                issues.append(f"{uid}: unknown dependency {dep}")
+    graph={uid:[d for d in dependencies.get(uid,[]) if d in known and d != uid] for uid in known}
+    state={}
+    stack=[]
+    reported=set()
+    def visit(uid):
+        state[uid]=1; stack.append(uid)
+        for dep in graph.get(uid,[]):
+            if state.get(dep,0)==0:
+                visit(dep)
+            elif state.get(dep)==1:
+                try: cycle=stack[stack.index(dep):]+[dep]
+                except ValueError: cycle=[dep,uid,dep]
+                key=tuple(cycle)
+                if key not in reported:
+                    reported.add(key)
+                    issues.append("dependency cycle: "+" -> ".join(cycle))
+        stack.pop(); state[uid]=2
+    for uid in sorted(known):
+        if state.get(uid,0)==0: visit(uid)
+    return issues
+
 def normalize_plan(plan):
     plan = plan if isinstance(plan, dict) else {}
     out = {"summary": str(plan.get("summary") or ""), "tasks": []}
@@ -105,5 +136,11 @@ def normalize_plan(plan):
             })
         out["tasks"].append({"id":tid,"title":str(task.get("title") or tid),"description":str(task.get("description") or ""),"dependencies":list(task.get("dependencies") or []),"task_class":str(task.get("task_class") or "general"),"risk":str(task.get("risk") or "medium"),"verification":str(task.get("verification") or ""),"work_units":normalized_units})
     if not out["tasks"]: issues.append("plan has no tasks")
-    unit_count=sum(len(t["work_units"]) for t in out["tasks"])
+    flat=[u for t in out["tasks"] for u in t["work_units"]]
+    ids=[u["id"] for u in flat]
+    dupes=sorted({uid for uid in ids if ids.count(uid)>1})
+    issues.extend(f"{uid}: duplicate work_unit id" for uid in dupes)
+    dependencies={u["id"]:list(u.get("dependencies") or []) for u in flat}
+    issues.extend(_dag_issues(ids,dependencies))
+    unit_count=len(flat)
     return out,{"needs_expansion":bool(issues),"issues":issues,"work_units":unit_count}
