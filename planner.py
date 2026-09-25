@@ -11,7 +11,7 @@ def hermes_plan_contract():
     """Hard planning contract. CMD owns orchestration policy; Hermes is the execution runtime."""
     return {
         "owner": "cmd_control_plane",
-        "hierarchy": {"control_plane":"cmd","runtime":"hermes","manager":"deepseek-v4-flash-fast","manager_fallback":"muse-spark-1.3-contributor","secretary":"muse-spark-1.3-contributor","planner":"agy/gemini-3.8-flash","incident_analyst":"sol|mimo-v4-pro confirmed-defect-only","patcher":"terra confirmed-defect-only","coder":"execution","verifier":"independent_check"},
+        "hierarchy": {"control_plane":"cmd","runtime":"hermes","manager":"deepseek-v4-flash-fast","manager_fallback":"muse-spark-1.3-contributor","secretary":"muse-spark-1.3-contributor","planner":"agy/gemini-3.8-flash","incident_analyst":"sol|mimo-v4-pro confirmed-defect-only","patcher":"terra-class confirmed-defect-only","coder":"execution","verifier":"independent_check"},
         "resolution": "task/work_unit/step",
         "hard_rules": [
             "LIBRARY-FIRST: before custom implementation, search project dependencies, standard library/framework APIs, official packages, then suitable maintained third-party libraries.",
@@ -19,7 +19,7 @@ def hermes_plan_contract():
             "PLANNER is HARD-LOCKED to Gemini 3.8 Flash through AGY for normal planning. Sol/MiMo V4 Pro are forbidden on the normal path.",
             "SECRETARY/SCOUT is HARD-LOCKED to Muse Spark 1.3 Contributor. MANAGER intelligence is DeepSeek V4 Flash Fast with Muse Spark 1.3 Contributor fallback.",
             "CODER receives a complete algorithm/contract from PLANNER and should use the cheapest capable coding model; CODER must not redesign architecture or algorithm.",
-            "VERIFIER may reject normal work back to the planner. Sol/MiMo V4 Pro may enter only after user defect feedback AND Hermes confirms/reproduces the defect; they diagnose plan/algorithm root cause but do not patch. Hermes then gives Terra a bounded patch packet containing original input/output/algorithm plus defect evidence.",
+            "VERIFIER may reject normal work back to the planner. Sol/MiMo V4 Pro may enter only after user defect feedback AND Hermes confirms/reproduces the defect; they diagnose plan/algorithm root cause but do not patch. Hermes then selects the cheapest available Terra-class patcher and gives it a bounded patch packet containing original input/output/algorithm plus defect evidence.",
             "For code, one independently changeable function/method is one atomic work_unit by default.",
             "Tiny getters/setters/generated wrappers may be grouped only when agent startup/coordination would cost more than the work.",
             "Every custom implementation unit must depend on a library_discovery unit or carry explicit library_evidence explaining why no suitable reusable implementation exists.",
