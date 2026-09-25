@@ -1,4 +1,4 @@
-# cmd-orchestrator v1.3.0
+# cmd-orchestrator v1.3.1
 
 `cmd-orchestrator` is a **control plane for Hermes**, not a second orchestrator.
 
@@ -80,6 +80,18 @@ Plan deeply. Execute efficiently.
 ```
 
 CMD validates whether a Hermes plan is too coarse, but CMD does not invent the missing plan. It asks Hermes to expand it.
+
+## v1.3.1 role hierarchy
+
+CMD now separates **authority from the session's default model**. Hermes is the CEO/orchestrator; the default model acts as a SECRETARY for interaction and control-plane bookkeeping, not architecture decisions.
+
+- **PLANNER / architect** — strong reasoning model; prefer Sol or DeepSeek V4 Pro when available. Owns architecture, algorithms, contracts, DAG and acceptance criteria.
+- **SCOUT / procurement** — fast research model; prefer Muse Spark 1.3 Contributor when available. Finds ready-made libraries/packages/tools and the exact API/usage needed. It must not research how to recreate components that can be reused.
+- **CODER / worker** — cheapest capable coding model. Receives a complete algorithm + contract from PLANNER and implements it without redesigning the system.
+- **VERIFIER** — independently checks acceptance criteria and may reject output; design changes are escalated to PLANNER.
+- **HERMES** — owns orchestration, concurrency, state and integration. Workers do not recursively orchestrate.
+
+This concentrates expensive intelligence in planning and scales execution with fast/cheap workers.
 
 ## v1.3 execution policy: library-first + atomic multi-agent
 
