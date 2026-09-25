@@ -290,7 +290,7 @@ When working inside a project, CMD also keeps a human-readable checkpoint at:
 
 ## Human-only model override guard
 
-`/cmd-model` is an operator escape hatch for **ordinary pending worker units only**. It cannot change PLANNER, SECRETARY, MANAGER, INCIDENT_ANALYST or PATCHER routes, and it cannot assign their reserved models to an ordinary worker. Agent/tool calls have no model-override tool surface, so automated execution cannot use this command to bypass the locked role policy.
+`/cmd-model` is an operator escape hatch for **ordinary pending worker units only**. It cannot change PLANNER, SECRETARY, MANAGER or INCIDENT_ANALYST routes. PATCHER is not a literal-model lock: after a confirmed defect, Hermes selects a suitable Terra-class model and passes only the bounded patch packet. Agent/tool calls have no model-override tool surface, so automated execution cannot use this command to bypass the locked role policy.
 
 ## Model ownership
 
