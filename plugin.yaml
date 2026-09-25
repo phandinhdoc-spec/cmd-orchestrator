@@ -12,6 +12,7 @@ provides_tools:
   - cmd_learning_capture
   - cmd_learning_context
   - cmd_models_refresh
+  - cmd_ready_batch
   - cmd_orchestrate
   - cmd_route
   - cmd_learning_stats
