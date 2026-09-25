@@ -11,7 +11,7 @@ from .rescue import looks_limited, rescue
 
 log=logging.getLogger(__name__)
 
-ORCHESTRATED_GUIDANCE = """cmd-orchestrator v1.2 is a CONTROL PLANE, not a replacement orchestrator.
+ORCHESTRATED_GUIDANCE = """cmd-orchestrator v1.3 is a CONTROL PLANE, not a replacement orchestrator.
 Hermes remains responsible for planning, dependencies, parallelism, worker/model choice, and execution.
 
 For each new user request, Hermes first decides DIRECT vs ORCHESTRATED using its own judgment:
@@ -19,10 +19,10 @@ For each new user request, Hermes first decides DIRECT vs ORCHESTRATED using its
 - ORCHESTRATED: substantial/multi-part/mixed-difficulty work. Follow this protocol:
   1) Invoke Grill Me / grill-tab if available. Never silently replace the user prompt.
   2) Call cmd_prompt_capture with the FULL original prompt and FULL grilled prompt. Show both in full and wait for the human to choose original/grilled/edit.
-  3) After selection, Hermes creates the plan. Use task -> work_unit -> step. Make it detailed enough to expose mixed difficulty. A work_unit is independently routable; a step normally is not an agent call.
+  3) After selection, Hermes creates the plan. FIRST perform library/dependency discovery. Reuse existing project dependencies, standard/framework APIs, official packages, or maintained libraries; REIMPLEMENT_EXISTING_LIBRARY is a hard failure. Then use task -> work_unit -> step. For code, one independently changeable function/method = one atomic work_unit by default. A step normally is not an agent call.
   4) Hermes chooses provider/model per work_unit. Call cmd_capture_plan. If CMD reports plan_needs_expansion, expand the coarse units; CMD must not invent the missing plan.
   5) Show the DSL-like /cmd-review. Human may edit pending tasks/work_units or override routes. If the human says OK/approve, call cmd_approve_run (or they may use /cmd-run).
-  6) During execution re-read each work_unit before starting it. PENDING/READY work can change; RUNNING/DONE is locked.
+  6) During execution re-read each work_unit before starting it. Build the READY frontier from the dependency DAG and dispatch independent units to separate workers concurrently up to max_parallel. Do not serialize independent small units. Prevent overlapping write scopes. Workers never recursively orchestrate; Hermes remains the sole parent orchestrator. PENDING/READY work can change; RUNNING/DONE is locked.
   7) After verification call cmd_complete_run, reflect on what was actually learned, then call cmd_learning_capture. User-approved/user-taught learning has higher authority than inferred learning.
   8) Before substantial future work call cmd_learning_context and consider relevant ACTIVE/APPROVED lessons, without surrendering Hermes' orchestration authority.
 """
@@ -42,7 +42,7 @@ def register(ctx):
       ("cmd-models",c_models,"Alias: show all models visible to Hermes.",""),
       ("cmd-learn",c_learn,"Review/edit/teach learning for Hermes.","[add|edit|approve|activate|disable|reject|delete ...]"),
       ("cmd-learning",c_learning,"Alias of /cmd-learn.",""),
-      ("cmd-route",c_route,"Explain v1.2 routing ownership.","[task]"),
+      ("cmd-route",c_route,"Explain v1.3 routing ownership.","[task]"),
       ("cmd-mode",c_mode,"Compatibility cost/quality hint; Hermes still owns routing.","[cheap|balanced|quality|fast]"),
       ("cmd-auto",c_auto,"Set CMD intervention mode.","[off|review|on]"),
       ("cmd-clean",c_clean,"Preview/selectively clean CMD-generated artifacts or deep-clean CMD state.","[select IDs...|project|all] [--deep] [--learning]"),
@@ -51,7 +51,7 @@ def register(ctx):
       ("cmd-history",c_history,"Show recent runs.",""),
       ("cmd-rescue",c_rescue,"Checkpoint and call local fm rescue.","[reason]"),
       ("cmd-abort",c_abort,"Abort current run safely.","[reason]"),
-      ("cmd-help",c_help,"Show v1.2 control-plane commands.","")]
+      ("cmd-help",c_help,"Show v1.3 control-plane commands.","")]
     for n,h,d,ah in cmds:
         ctx.register_command(n,handler=h,description=d,args_hint=ah)
 
@@ -67,11 +67,11 @@ def register(ctx):
             if stage=="prompt_review":
                 return {"content":"CMD stage=prompt_review. Interpret the user's reply as choosing/editing the displayed FULL prompt; call cmd_prompt_select. Do not execute the substantive task yet."}
             if stage in ("hermes_plan","plan_expansion"):
-                return {"content":"CMD stage=Hermes planning. Hermes owns the plan. Produce/expand task -> work_unit -> step and call cmd_capture_plan; route each work_unit with Hermes' model choice."}
+                return {"content":"CMD stage=Hermes planning. Hermes owns the plan. Enforce library-first discovery and never recreate a suitable library. For code, decompose to one function/method per atomic work_unit by default. Produce/expand task -> work_unit -> step, model the dependency DAG and independent parallel units, then call cmd_capture_plan; route each work_unit with Hermes' model choice."}
             if stage=="review":
                 return {"content":"CMD stage=review. If the user requests edits, apply them with cmd_plan_patch. If they approve/OK, call cmd_approve_run and execute its returned instruction."}
             if stage in ("execution","resume"):
-                return {"content":"CMD stage=execution. Re-read the current work_unit before starting it; honor human edits/route overrides only for not-yet-started units. Continue Hermes orchestration."}
+                return {"content":"CMD stage=execution. Re-read units before starting them. Execute the READY DAG frontier with separate workers concurrently up to max_parallel; do not serialize independent small work. Enforce library-first reuse, write-scope isolation, and no recursive worker orchestration. Honor human edits/route overrides only for not-yet-started units. Continue Hermes orchestration."}
             if stage in ("learning","learning_review"):
                 return {"content":"CMD stage=learning. Hermes should record concise evidence-based reflection through cmd_learning_capture; the human may edit/approve it with /cmd-learn."}
 
