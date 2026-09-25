@@ -1,4 +1,4 @@
-# cmd-orchestrator v1.3.2
+# cmd-orchestrator v1.4.0
 
 `cmd-orchestrator` is a **control plane for Hermes**, not a second orchestrator.
 
@@ -82,7 +82,17 @@ Plan deeply. Execute efficiently.
 
 CMD validates whether a Hermes plan is too coarse, but CMD does not invent the missing plan. It asks Hermes to expand it.
 
-## v1.3.2 role hierarchy
+## v1.4 pipelined planning
+
+Planning is intentionally overlapped for speed:
+
+1. **L1 Mission** — objective, scope, deliverables, constraints.
+2. **L2 Execution Design** — architecture, process, rules, and likely reusable libraries/tools. As soon as candidates are known, a fast SCOUT starts procurement/research immediately while PLANNER continues independent work.
+3. **Planning barrier** — library-dependent L3 details wait only for the SCOUT capability report; unrelated planning does not wait.
+4. **L3 Work Plan** — modules/functions, reuse mapping, algorithms/contracts for difficult functions, DAG, assigned role/model and acceptance criteria. Every work unit states WHAT, WHO, WHEN, HOW and PASS.
+5. **Human review**, then run-to-completion execution.
+
+## Role hierarchy
 
 CMD now separates **authority from the session's default model**. CMD is the control/management plane; Hermes is the execution director/runtime; the default model acts as a SECRETARY for interaction and control-plane bookkeeping, not architecture decisions.
 
@@ -115,18 +125,10 @@ Tiny getters/setters/generated wrappers may be grouped only when coordination co
 
 After the human approves `/cmd-run`, CMD must not stop after W1/W2 merely because one worker returned. Completion of a work unit triggers immediate DAG recomputation and dispatch of the next READY frontier. The run pauses only for an explicit predeclared approval gate or a blocking failure that genuinely requires human input; otherwise it continues until all required units are verified and the run reaches `DONE`.
 
-## Prompt review
+## Prompt handling
 
-For substantial work, Grill Me / `grill-tab` should run first when available. CMD must show the **full original prompt and full grilled prompt**. Grill output never silently replaces user intent.
+The original user prompt is authoritative. v1.4 removes Grill/prompt rewriting and the separate prompt-review round trip. The strong PLANNER converts the request directly into a three-layer plan.
 
-```text
-/cmd-prompt
-/cmd-prompt original
-/cmd-prompt grilled
-/cmd-prompt edit <full edited prompt>
-```
-
-CMD stores `original_prompt`, `grilled_prompt`, and `selected_prompt` separately.
 
 ## Task review and human intervention
 
