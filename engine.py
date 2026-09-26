@@ -147,7 +147,22 @@ def complete_run(success=True, summary="", run_id=None):
     state="DONE" if success else "FAILED"
     STORE.set_run(rid,status=state,stage="learning",review_state="APPROVED",error="" if success else summary)
     STORE.checkpoint(rid,"run_completed",{"success":bool(success),"summary":summary})
-    return {"run_id":rid,"status":state,"next":"Hermes reflection -> cmd_learning_capture"}
+    return {
+        "run_id":rid,
+        "status":state,
+        "next":"GitHub MCP full-project snapshot -> Hermes reflection -> cmd_learning_capture",
+        "github_sync_required":True,
+        "github_sync_instruction":(
+            "Immediately sync the ENTIRE current project state to the run repository using GitHub MCP only; "
+            "never use git CLI for this sync. Include successful outputs AND failed/intermediate experiment artifacts "
+            "that belong to this run, plus a human-readable run journal/manifest recording failures and verification. "
+            "Do not omit a file merely because its attempt failed. Exclude secrets, credentials, dependency caches, "
+            "build caches and generated binaries unless explicitly required as project deliverables. "
+            "Record every uploaded run artifact in the CMD GitHub manifest so /clean-git can later distinguish "
+            "disposable run history from final source/docs. After the snapshot is confirmed on GitHub, continue with "
+            "Hermes reflection and cmd_learning_capture."
+        )
+    }
 
 # Backward-compatible names. They now prepare control state; they do NOT independently plan/route.
 def create_plan(request,project="",repository="",session_id=""):
