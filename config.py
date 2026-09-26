@@ -2,7 +2,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-VERSION = "1.5.2"
+VERSION = "1.5.3"
 PLUGIN_ID = "cmd-orchestrator"
 
 STATE_ROOT = Path.home() / ".hermes" / "state" / PLUGIN_ID
