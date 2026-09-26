@@ -354,3 +354,55 @@ python3 install.py --clean-state
 ```
 
 Backups remain under `~/.hermes/plugin-backups/`.
+
+
+---
+
+## CommandCode-native mode (v2 preview)
+
+The repository now also contains a standalone runtime that does **not require Hermes**.
+
+```text
+request
+  -> CommandCode planner
+  -> fine-grained work_units
+  -> dependency DAG
+  -> per-unit model routing
+  -> parallel CommandCode workers
+  -> verification evidence
+  -> durable run state / resume
+```
+
+The planner is deliberately instructed to split mixed-difficulty work into independently routable units (for example: interface design, easy helpers, difficult state machine, unit tests, regression tests, integration, documentation). Steps remain internal checklists so the system does not waste one model call per tiny step.
+
+### Fish install
+
+```fish
+git clone https://github.com/phandinhdoc-spec/cmd-orchestrator.git
+cd cmd-orchestrator
+fish install-commandcode.fish
+```
+
+After this branch is merged to `main`:
+
+```fish
+cmd-orchestrator plan "Implement the requested feature with tests" --project (pwd)
+cmd-orchestrator status
+cmd-orchestrator run -j 3
+```
+
+The native state is stored under `~/.commandcode/cmd-orchestrator/`.
+
+### CommandCode CLI compatibility
+
+By default the adapter calls `commandcode --model <model>` and sends the worker prompt on stdin. If the installed CommandCode build uses another CLI syntax, set `COMMANDCODE_ARGS`. Supported placeholders are `{model}` and `{prompt_file}`.
+
+Example:
+
+```fish
+set -Ux COMMANDCODE_ARGS '--model {model} --prompt-file {prompt_file}'
+```
+
+Routing aliases are intentionally editable rather than hard-coded to one subscription catalog. Set `CMD_MODEL_ROUTES` to a JSON file to replace the default cheap/balanced/strong/review mappings. Set `CMD_PLANNER_MODEL` to choose the planning model.
+
+This native runtime is separate from the existing Hermes plugin so current Hermes users are not broken during migration.
