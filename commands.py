@@ -277,6 +277,33 @@ Choose one:
     return "Usage: /cmd-clean [select <IDs...>|project|all] [--deep] [--learning]"
 
 
+
+def make_clean_git(ctx):
+    def c_clean_git(a):
+        r=STORE.current()
+        if not r:
+            return "No saved run/project. Start or resume a CMD project first."
+        repository=str(r.get("repository") or "").strip()
+        if not repository:
+            return "Current CMD run has no GitHub repository recorded; clean-git cannot safely target a remote repository."
+        instruction=(
+            f"CLEAN-GIT for CMD run {r['run_id']} repository {repository}. Use GitHub MCP ONLY; do not use git CLI. "
+            "Read the CMD GitHub run manifest/journal first. Remove ONLY artifacts explicitly recorded by CMD as "
+            "disposable/intermediate run history: failed attempt snapshots, superseded patches, temporary logs, scratch "
+            "outputs and other CMD-marked trash. Preserve the FINAL working source tree regardless of extension "
+            "(.py/.kt/.swift/.ino/.typ/etc), required project/config/build metadata, and the FINAL .md/.txt documentation. "
+            "Never delete secrets by publishing them; secrets must remain excluded. Before each deletion verify the path "
+            "is manifest-marked disposable and is not the final version. Perform deletions through GitHub MCP, then update "
+            "the manifest/journal with the clean-git result and verify the repository still contains the final code and "
+            "final Markdown/text files. If classification is ambiguous, preserve the file rather than deleting it."
+        )
+        try:
+            ctx.inject_message(instruction,role="user")
+            return f"clean-git injected for {repository}. GitHub MCP only; final code + final .md/.txt are protected."
+        except Exception as e:
+            return f"Could not inject clean-git instruction: {e}\\nTell Hermes:\\n{instruction}"
+    return c_clean_git
+
 def c_rescue(a): return json.dumps(rescue(reason=(a or "manual /cmd-rescue")),ensure_ascii=False,indent=2)
 
 
