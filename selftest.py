@@ -20,7 +20,7 @@ from cmd_orchestrator.scheduler import ready_frontier
 from cmd_orchestrator.router import locked_role
 from cmd_orchestrator.dsl import render_plan
 
-assert VERSION=="1.5.2"
+assert VERSION=="1.5.3"
 assert locked_role("planner")["model"]=="gemini-3.8-flash"
 assert locked_role("secretary")["model"]=="muse-spark-1.3-contributor"
 assert locked_role("manager")["model"]=="deepseek-v4-flash-fast"
