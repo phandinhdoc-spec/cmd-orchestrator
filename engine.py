@@ -2,6 +2,7 @@ from __future__ import annotations
 from .config import load_settings
 from .planner import normalize_plan, hermes_plan_contract
 from .storage import STORE
+from .plan_markdown import write_plan_markdown
 
 
 def begin_prompt_review(original_prompt, grilled_prompt="", project="", repository="", session_id=""):
@@ -25,12 +26,14 @@ def capture_hermes_plan(plan, run_id=None):
         raise ValueError("no active run")
     normalized,quality=normalize_plan(plan)
     STORE.set_plan(r["run_id"],normalized)
+    plan_path=write_plan_markdown(r.get("project") or "",r["run_id"],normalized,STORE.plan_tree(r["run_id"]))
+    STORE.checkpoint(r["run_id"],"plan_markdown_saved",{"path":plan_path,"source_of_truth":True})
     if quality["needs_expansion"]:
         STORE.set_run(r["run_id"],status="PLANNING",stage="plan_expansion",review_state="PENDING")
         STORE.checkpoint(r["run_id"],"plan_needs_expansion",quality)
     else:
         STORE.set_run(r["run_id"],status="PLANNED",stage="review",review_state="PENDING")
-    return {"run_id":r["run_id"],"quality":quality,"plan":normalized,"tree":STORE.plan_tree(r["run_id"])}
+    return {"run_id":r["run_id"],"quality":quality,"plan":normalized,"tree":STORE.plan_tree(r["run_id"]),"plan_markdown":plan_path,"instruction":"Show this Markdown plan for review. Preserve detailed planner comments. Before approve/resume, reread it and reconcile valid human edits into CMD state."}
 
 
 def patch_plan_item(item_id, changes, run_id=None):
@@ -57,6 +60,7 @@ def approve_run(run_id=None):
     r=STORE.run(run_id) if run_id else STORE.current()
     if not r:
         raise ValueError("no active run")
+    STORE.checkpoint(r["run_id"],"markdown_reread_required",{"instruction":"Reread the latest .ai/cmd-plans/*_plan.md and reconcile valid human edits before approval."})
     if not STORE.work_units(r["run_id"]):
         raise ValueError("no detailed Hermes work_units captured; plan must be expanded before execution")
     if r.get("current_stage")=="plan_expansion" or r.get("status")=="PLANNING":
@@ -74,8 +78,8 @@ def approve_run(run_id=None):
 
 def execution_instruction(rid):
     return (
-        f"Execute cmd-orchestrator run {rid}. CMD is the control/management plane and owns orchestration policy/state; Hermes is the execution director/runtime. After human approval, this run is RUN-TO-COMPLETION: do not wait for another user message between approved work units. Recompute the READY frontier immediately whenever a unit finishes and continue until DONE, a declared approval gate, or a blocking failure that requires human input. Re-read the saved work_unit immediately before "
-        "starting it because the operator may edit any READY/PENDING unit or route. Execute dependencies first. Role hierarchy is mandatory: the session/default model is SECRETARY only; architecture, algorithm and DAG decisions belong to a strong PLANNER (prefer Sol or DeepSeek V4 Pro when available). SCOUT workers search for ready-made libraries/packages/tools and their usage/API, not tutorials for recreating internals (prefer Muse Spark 1.3 Contributor when available). Before custom code, enforce library-first reuse. CODER workers receive the planner algorithm/contract and use the cheapest capable model; they must escalate instead of redesigning it. VERIFIER may reject but escalates design changes to PLANNER. For code, treat each independently changeable function/method work_unit as atomic. Call cmd_ready_batch to obtain the dependency-ready, write-scope-safe frontier, then dispatch each returned READY unit to a separate worker concurrently up to settings.max_parallel. Workers must not recursively orchestrate; CMD owns orchestration policy and Hermes performs runtime dispatch. Treat steps as "
+        f"Execute cmd-orchestrator run {rid}. CMD is the control/management plane and owns orchestration policy/state; Hermes is the execution director/runtime. After human approval, this run is RUN-TO-COMPLETION: do not wait for another user message between approved work units. Recompute the READY frontier immediately whenever a unit finishes and continue until DONE, a declared approval gate, or a blocking failure that requires human input. Before execution/resume, reread the latest numbered timestamped Markdown plan under .ai/cmd-plans and reconcile valid human edits into CMD state. Preserve planner comments. Then re-read the saved work_unit immediately before "
+        "starting it because the operator may edit any READY/PENDING unit or route. Execute dependencies first. Role hierarchy is mandatory: the session/default model is SECRETARY only; architecture, algorithm and DAG decisions belong to the locked PLANNER route AGY/Gemini 3.8 Flash. SCOUT workers search for ready-made libraries/packages/tools and their usage/API, not tutorials for recreating internals (prefer Muse Spark 1.3 Contributor when available). Before custom code, enforce library-first reuse. CODER workers receive the planner algorithm/contract and use the cheapest capable model; they must escalate instead of redesigning it. VERIFIER may reject but escalates design changes to PLANNER. For code, treat each independently changeable function/method work_unit as atomic. Call cmd_ready_batch to obtain the dependency-ready, write-scope-safe frontier, then dispatch each returned READY unit to a separate worker concurrently up to settings.max_parallel. Workers must not recursively orchestrate; CMD owns orchestration policy and Hermes performs runtime dispatch. Treat steps as "
         "an internal checklist, not separate agent calls unless Hermes decides that is necessary. Use the provider/model stored on "
         "each work_unit; route_source=operator overrides Hermes' original route. Verify each unit before DONE and checkpoint material "
         "progress. Each worker receives only cmd_work_packet for its unit, not the full plan. When a unit passes verification, immediately call cmd_unit_update status=DONE with a concise output_summary/files_touched: this is the SECRETARY check-in handed to Hermes. DONE/SKIPPED units are immutable and must be excluded from later worker context. If a model limits or is replaced, route the same unfinished work packet to the replacement model with explicit input/output/verification; do not make it reread the full plan. At the end call cmd_complete_run, then perform a concise Hermes reflection and call "
