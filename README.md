@@ -240,7 +240,7 @@ Before future substantial work, Hermes can retrieve ACTIVE/APPROVED lessons as c
 /cmd-models
 /cmd-learn [action ...]
 /cmd-learning                       # alias
-/cmd-clean [select IDs...|project|all] [--deep] [--learning]
+/cmd-clean [select IDs...|project|all] [--deep] [--learning]\n/clean-git                          # GitHub MCP: remove manifest-marked run trash, preserve final code/docs
 /cmd-checkpoint [note]
 /cmd-resume [run_id]
 /cmd-history
@@ -251,6 +251,25 @@ Before future substantial work, Hermes can retrieve ACTIVE/APPROVED lessons as c
 /cmd-help
 ```
 
+
+
+## Automatic GitHub MCP run archive
+
+Every terminal CMD run, whether **DONE or FAILED**, must be archived to the run's recorded GitHub repository before learning/reflection finishes.
+
+- GitHub synchronization uses **GitHub MCP only**; the CMD policy forbids `git commit`/`git push` for this automatic archive path.
+- The snapshot includes the current project plus useful failed/intermediate experiment artifacts so unsuccessful work is not silently lost.
+- CMD requires a human-readable run journal/manifest identifying final outputs versus disposable run artifacts.
+- Secrets/credentials, dependency caches, build caches, and unrelated generated binaries are excluded.
+- A failed verification does **not** suppress archival; failure evidence is part of the research/development history.
+
+After the project is genuinely finished, run:
+
+```text
+/clean-git
+```
+
+`/clean-git` reads the CMD run manifest and removes only entries explicitly classified as disposable/superseded run history. It preserves the final working source tree regardless of extension, required project/config metadata, and final `.md`/`.txt` documentation. Ambiguous files are preserved rather than deleted. Cleanup is also performed through GitHub MCP, not git CLI.
 
 ## Cleanup
 
