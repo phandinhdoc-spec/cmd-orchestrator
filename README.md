@@ -1,4 +1,4 @@
-# cmd-orchestrator v1.5.3
+# cmd-orchestrator v1.5.4
 
 `cmd-orchestrator` is a **control plane for Hermes**, not a second orchestrator.
 
@@ -63,6 +63,20 @@ human review / edit / model override
           v
 Hermes reflection -> CMD learning review -> human teaches/corrects Hermes
 ```
+
+
+## Plan-as-Markdown (v1.5.4)
+
+Every orchestrated Hermes plan is persisted to a human-editable Markdown file:
+
+```text
+.ai/cmd-plans/0001_2026-09-26_10-45-32_plan.md
+.ai/cmd-plans/0002_2026-09-26_11-08-05_plan.md
+```
+
+The sequence is monotonic inside the project and the timestamp records creation time to seconds. The plan uses headings, numbered execution order, Markdown task lists/checklists, dependencies, agent/model routing, acceptance/verification criteria, and detailed planner comments. Planner comments must explain why the work exists, assumptions, risks, library/package/API reuse decisions, write scope, handoff expectations, and what must not be changed.
+
+The Markdown plan is the human-editable source of truth for review and resume. Hermes must reread the latest plan before approval/resume and reconcile valid human edits into CMD execution state. SQLite remains the durable execution ledger/checkpoint. Automatic status updates must preserve planner comments and human edits. A checked `[x]` item is not accepted as DONE without verification evidence.
 
 ## Plan resolution: Task -> Work Unit -> Step
 
