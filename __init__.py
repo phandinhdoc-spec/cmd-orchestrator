@@ -5,7 +5,7 @@ from .storage import STORE
 from .tools import SCHEMAS, HANDLERS
 from .commands import (
     c_status,c_mode,c_auto,make_plan,c_prompt,c_review,c_edit,make_run,c_route,c_model,c_models,
-    c_learn,c_learning,c_clean,c_checkpoint,c_resume,c_history,c_rescue,c_abort,c_help
+    c_learn,c_learning,c_clean,make_clean_git,c_checkpoint,c_resume,c_history,c_rescue,c_abort,c_help
 )
 from .rescue import looks_limited, rescue
 
@@ -22,7 +22,7 @@ For each new user request, Hermes first decides DIRECT vs ORCHESTRATED using its
   4) CMD chooses provider/model policy by ROLE; Hermes executes the selected route, not merely task difficulty: PLANNER=AGY/Gemini 3.8 Flash; SECRETARY/SCOUT=Muse Spark 1.3 Contributor; MANAGER=DeepSeek V4 Flash Fast with Muse Contributor fallback; CODER=cheapest capable packet worker; VERIFIER=independent checking. Sol/MiMo V4 Pro are forbidden unless a user-reported defect is confirmed by Hermes; then they diagnose only, and the cheapest available Terra-class model receives the bounded patch packet. CODER must escalate rather than redesign architecture/algorithm.  Call cmd_capture_plan. If CMD reports plan_needs_expansion, expand the coarse units; CMD must not invent the missing plan.
   5) Show the DSL-like /cmd-review. Human may edit pending tasks/work_units or override routes. If the human says OK/approve, call cmd_approve_run (or they may use /cmd-run).
   6) During execution re-read each work_unit before starting it. Build the READY frontier from the dependency DAG and dispatch independent units to separate workers concurrently up to max_parallel. Do not serialize independent small units. Prevent overlapping write scopes. Workers never recursively orchestrate; CMD remains the control-plane authority; Hermes remains the execution runtime. PENDING/READY work can change; RUNNING/DONE is locked.
-  7) After verification call cmd_complete_run, reflect on what was actually learned, then call cmd_learning_capture. User-approved/user-taught learning has higher authority than inferred learning.
+  7) After verification call cmd_complete_run for BOTH success and terminal failure. Immediately obey github_sync_instruction: snapshot the entire project to its recorded repository with GitHub MCP only (NO git CLI), including failed/intermediate run artifacts and a run journal/manifest; exclude secrets/caches. Only after GitHub snapshot confirmation, reflect on what was actually learned, then call cmd_learning_capture. User-approved/user-taught learning has higher authority than inferred learning.
   8) Before substantial future work call cmd_learning_context and consider relevant ACTIVE/APPROVED lessons, without surrendering Hermes' orchestration authority.
 """
 
@@ -44,7 +44,7 @@ def register(ctx):
       ("cmd-route",c_route,"Explain v1.5.2 routing ownership.","[task]"),
       ("cmd-mode",c_mode,"Compatibility cost/quality hint; Hermes still owns routing.","[cheap|balanced|quality|fast]"),
       ("cmd-auto",c_auto,"Set CMD intervention mode.","[off|review|on]"),
-      ("cmd-clean",c_clean,"Preview/selectively clean CMD-generated artifacts or deep-clean CMD state.","[select IDs...|project|all] [--deep] [--learning]"),
+      ("cmd-clean",c_clean,"Preview/selectively clean CMD-generated artifacts or deep-clean CMD state.","[select IDs...|project|all] [--deep] [--learning]"),\n      ("clean-git",make_clean_git(ctx),"Use GitHub MCP to delete only manifest-marked run trash while preserving final code and final md/txt.",""),
       ("cmd-checkpoint",c_checkpoint,"Force a durable checkpoint.","[note]"),
       ("cmd-resume",c_resume,"Resume latest interrupted run.","[run_id]"),
       ("cmd-history",c_history,"Show recent runs.",""),
