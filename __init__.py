@@ -11,7 +11,7 @@ from .rescue import looks_limited, rescue
 
 log=logging.getLogger(__name__)
 
-ORCHESTRATED_GUIDANCE = """cmd-orchestrator v1.5.2 is the CONTROL/MANAGEMENT PLANE. Hermes is the EXECUTION DIRECTOR / AGENT RUNTIME, not the policy owner. The session default model is only the SECRETARY. Normal planning is HARD-LOCKED to Gemini 3.8 Flash through AGY. SECRETARY is HARD-LOCKED to Muse Spark 1.3 Contributor. MANAGER intelligence is HARD-LOCKED to DeepSeek V4 Flash Fast with Muse Spark 1.3 Contributor fallback. Sol/MiMo V4 Pro are incident-only.
+ORCHESTRATED_GUIDANCE = """cmd-orchestrator v1.5.3 is the CONTROL/MANAGEMENT PLANE. Hermes is the EXECUTION DIRECTOR / AGENT RUNTIME, not the policy owner. The session default model is only the SECRETARY. Normal planning is HARD-LOCKED to Gemini 3.8 Flash through AGY. SECRETARY is HARD-LOCKED to Muse Spark 1.3 Contributor. MANAGER intelligence is HARD-LOCKED to DeepSeek V4 Flash Fast with Muse Spark 1.3 Contributor fallback. Sol/MiMo V4 Pro are incident-only.
 
 For each new user request, Hermes first decides DIRECT vs ORCHESTRATED using its own judgment:
 - DIRECT: simple, low-risk, obvious tool action. Execute directly with the most reliable direct tool (shell/API; Computer Use only when GUI is actually needed). Skip Grill and plan review.
@@ -41,7 +41,7 @@ def register(ctx):
       ("cmd-models",c_models,"Alias: show all models visible to Hermes.",""),
       ("cmd-learn",c_learn,"Review/edit/teach learning for Hermes.","[add|edit|approve|activate|disable|reject|delete ...]"),
       ("cmd-learning",c_learning,"Alias of /cmd-learn.",""),
-      ("cmd-route",c_route,"Explain v1.5.2 routing ownership.","[task]"),
+      ("cmd-route",c_route,"Explain v1.5.3 routing ownership.","[task]"),
       ("cmd-mode",c_mode,"Compatibility cost/quality hint; Hermes still owns routing.","[cheap|balanced|quality|fast]"),
       ("cmd-auto",c_auto,"Set CMD intervention mode.","[off|review|on]"),
       ("cmd-clean",c_clean,"Preview/selectively clean CMD-generated artifacts or deep-clean CMD state.","[select IDs...|project|all] [--deep] [--learning]"),
@@ -51,7 +51,7 @@ def register(ctx):
       ("cmd-history",c_history,"Show recent runs.",""),
       ("cmd-rescue",c_rescue,"Checkpoint and call local fm rescue.","[reason]"),
       ("cmd-abort",c_abort,"Abort current run safely.","[reason]"),
-      ("cmd-help",c_help,"Show v1.5.2 control-plane commands.","")]
+      ("cmd-help",c_help,"Show v1.5.3 control-plane commands.","")]
     for n,h,d,ah in cmds:
         ctx.register_command(n,handler=h,description=d,args_hint=ah)
 
