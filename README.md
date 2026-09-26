@@ -1,4 +1,4 @@
-# cmd-orchestrator v1.4.0
+# cmd-orchestrator v1.5.3
 
 `cmd-orchestrator` is a **control plane for Hermes**, not a second orchestrator.
 
